@@ -30,13 +30,21 @@ python3 -m http.server 8787      # 之后在浏览器打开 render.html（待加
 ```
 离线 MP4 渲染依赖：Python `playwright`（已安装时可直接驱动系统 Chrome：`/usr/bin/google-chrome`）、`ffmpeg`。
 
-## 待办
-- [ ] `app.js`：时间轴、播放器控件（播放/暂停、拖动、场景跳转、倍速、键盘）、`window.__render(t)` 无头接口
-- [ ] `core.js` 改为纯叠加层（去掉 2D 世界绘制，加入 3D 投影标注、场纹理绘制 `paintFieldTexture`）
-- [ ] 构建脚本：生成 `index.html`（CDN）与 `render.html`（本地依赖）
-- [ ] `scene3d.js` 联调：Panda IK 可达性、相机构图、场平面、分屏
-- [ ] Playwright 渲染脚本：按场景分段编码、concat、校验时长
-- [ ] 发布 Artifact；MP4 交付
+## 进度
+- [x] `core.js` 改为叠加层 + 共享工具（`core.util`、`core.F`、`paintFieldTexture`、3D 锚定标注、新几何 `WORLD`）
+- [x] `app.js`：三层画布（3D / 上一场景末帧 / 2D 叠加）、0.5 s 交叉淡化、播放器（播放/暂停、拖动、场景条与章节列表、倍速、键盘、全屏、400 px 可用、light/dark）、`window.__render(t)` + `window.__ready`
+- [x] `build.js`：从同一模板生成 `render.html`（本地依赖）与 `index.html`（cdnjs + Google Fonts，JS 内联）
+- [x] `scene3d.js` 联调：IK 残差 < 0.1 mm，机械臂底座移到挡板左侧（x = 0.02）避免遮挡，sRGB 颜色修正，场切片平面方向/纹理缓存，顶视图裁剪到台面，分屏场景
+- [x] `scripts/keyframes.js`：Node Playwright 渲染关键帧到 `preview/`
+- [ ] `render.py`/`render.js`：按场景分段编码 MP4、concat、校验时长（实测截图约 1.1 s/帧，需要并行）
+- [ ] `index.html` 发布为 Artifact；MP4 交付
+
+## 本地预览
+```bash
+npm install && node build.js
+python3 -m http.server 8787        # 浏览器打开 http://localhost:8787/render.html
+node scripts/keyframes.js 6 17 25 36 47 80 95 120 128 141 157 185 212 243 275   # → preview/kf_*.jpg
+```
 
 ## 素材与许可
 - Franka Panda 网格与 MJCF：[google-deepmind/mujoco_menagerie](https://github.com/google-deepmind/mujoco_menagerie)（Apache-2.0）。

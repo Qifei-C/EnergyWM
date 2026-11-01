@@ -12,13 +12,16 @@
   const X_OFF = -0.25;             // field x = world x - X_OFF
   const Y_TASK = 0.22;             // object plane (y) on the counter
   const Y_FIELD_PLANE = Y_TASK + 0.11; // vertical slice plane sits just behind the objects
+  const GHOST = 0.22;                // robot opacity while a field slice is being read
+  const MOUNT_X = 0.02;              // robot column x (left of the barrier so the arm does not hide it)
   const fieldToWorld = (fx, fz) => new THREE.Vector3(fx + X_OFF, Y_TASK, fz + COUNTER_Z);
+  const TOP_Y_CROP = 0.10;           // top-view field rows with fy < 0.10 lie in front of the counter
   const topFieldToWorld = (fx, fy) => new THREE.Vector3(fx + X_OFF, fy - 0.10, COUNTER_Z + 0.17);
 
   const COL = {
-    counter: 0xe9e6df, cabinet: 0xc9d0d6, cabinetDark: 0xaab3bc, toe: 0x4a4f57, wall: 0xf1efe9, tileLine: 0xcfd6dc,
-    floor: 0xb89a74, upper: 0xd6dde2, steel: 0xaab2bb, black: 0x202428, hood: 0xbfc6cc,
-    barrier: 0x6f7d90, bowl: 0x8aa0b8, banana: 0xe7b93a, bananaTip: 0x7a5a16,
+    counter: 0xdcd6cb, cabinet: 0x52667a, cabinetDark: 0x5f7489, toe: 0x2a2f36, wall: 0xe6e3dc, tileLine: 0xc2c9d0,
+    floor: 0xa88b66, upper: 0x52667a, steel: 0xb4bcc5, black: 0x202428, hood: 0xb9c1c9,
+    barrier: 0x66768b, bowl: 0x5f86b8, banana: 0xe7b93a, bananaTip: 0x7a5a16,
     base: 0x3b4149, baseLight: 0x5e6670, wheel: 0x1b1e22,
     blue: 0x2f5bb7, orange: 0xd4702a, teal: 0x17907f, red: 0xc43d32, ink: 0x1c2533, grey: 0x98a3b3
   };
@@ -97,8 +100,10 @@
         o.quaternion.copy(o.userData.quat).multiply(qj);
       });
       const lf = this.links.left_finger, rf = this.links.right_finger;
-      lf.position.copy(lf.userData.pos).add(new THREE.Vector3(0, this.fingers, 0));
-      rf.position.copy(rf.userData.pos).add(new THREE.Vector3(0, this.fingers, 0)); // right finger frame is flipped (quat 0 0 0 1)
+      // MuJoCo slide joints move along the axis in the body's own frame; the right finger frame is
+      // rotated 180° about z (quat 0 0 0 1), so its +y is the parent's −y.
+      lf.position.copy(lf.userData.pos).add(new THREE.Vector3(0, this.fingers, 0).applyQuaternion(lf.userData.quat));
+      rf.position.copy(rf.userData.pos).add(new THREE.Vector3(0, this.fingers, 0).applyQuaternion(rf.userData.quat));
       this.root.updateMatrixWorld(true);
     }
     // FK of the tcp for a joint vector, in the robot root frame
@@ -156,6 +161,15 @@
     return M.map((r, i) => r[n] / (r[i] || 1e-12));
   }
 
+  // r128 treats hex colours as linear while the output is sRGB: convert authored colours once.
+  function linMat(m) {
+    if (!m || m.userData.lin) return; m.userData.lin = true;
+    if (m.color) m.color.convertSRGBToLinear();
+    if (m.emissive) m.emissive.convertSRGBToLinear();
+    if (m.map) m.map.encoding = THREE.sRGBEncoding;
+  }
+  function linObject(o) { o.traverse(c => { if (c.material) (Array.isArray(c.material) ? c.material : [c.material]).forEach(linMat); }); }
+
   // ---- geometry helpers ----
   function box(w, d, h, color, o) {
     o = o || {};
@@ -164,8 +178,8 @@
   }
   function makeTileTexture() {
     const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d');
-    g.fillStyle = '#eef0f2'; g.fillRect(0, 0, 512, 256);
-    g.strokeStyle = '#c7ced5'; g.lineWidth = 3;
+    g.fillStyle = '#e4e7ea'; g.fillRect(0, 0, 512, 256);
+    g.strokeStyle = '#bcc4cc'; g.lineWidth = 3;
     for (let r = 0; r < 4; r++) { const y = r * 64; g.beginPath(); g.moveTo(0, y); g.lineTo(512, y); g.stroke(); const off = r % 2 ? 64 : 0; for (let x = off; x < 512; x += 128) { g.beginPath(); g.moveTo(x, y); g.lineTo(x, y + 64); g.stroke(); } }
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(4, 2); return t;
   }
@@ -177,9 +191,9 @@
   }
   function makeCounterTexture() {
     const c = document.createElement('canvas'); c.width = 256; c.height = 256; const g = c.getContext('2d');
-    g.fillStyle = '#e9e6df'; g.fillRect(0, 0, 256, 256);
+    g.fillStyle = '#dcd6cb'; g.fillRect(0, 0, 256, 256);
     let s = 12345; const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
-    for (let i = 0; i < 1800; i++) { g.fillStyle = rnd() < 0.5 ? '#d7d3ca' : '#f3f1ec'; g.fillRect(rnd() * 256, rnd() * 256, 2, 2); }
+    for (let i = 0; i < 1800; i++) { g.fillStyle = rnd() < 0.5 ? '#cbc4b8' : '#e8e3da'; g.fillRect(rnd() * 256, rnd() * 256, 2, 2); }
     const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(6, 2); return t;
   }
   function makeArrow(color, radius) {
@@ -203,7 +217,7 @@
     const curve = new THREE.CatmullRomCurve3(pts);
     const geo = new THREE.TubeGeometry(curve, segs || 48, radius, 8, false);
     const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ color, roughness: 0.6, transparent: true }));
-    mesh.castShadow = false; return mesh;
+    linMat(mesh.material); mesh.castShadow = false; return mesh;
   }
   function setTubeProgress(mesh, prog) {
     const idx = mesh.geometry.index.count; mesh.geometry.setDrawRange(0, Math.floor(idx * clamp(prog, 0, 1) / 3) * 3);
@@ -213,9 +227,9 @@
     const g = new THREE.Group();
     const pts = []; for (let i = 0; i <= 8; i++) { const t = i / 8 - 0.5; pts.push(new THREE.Vector3(t * 0.17, 0, -0.035 * Math.cos(t * Math.PI) + 0.01)); }
     const curve = new THREE.CatmullRomCurve3(pts);
-    const body = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.017, 12, false), new THREE.MeshStandardMaterial({ color: COL.banana, roughness: 0.55, transparent: true }));
+    const body = new THREE.Mesh(new THREE.TubeGeometry(curve, 24, 0.02, 12, false), new THREE.MeshStandardMaterial({ color: COL.banana, roughness: 0.55, transparent: true }));
     body.castShadow = true; g.add(body);
-    for (const s of [-0.5, 0.5]) { const tip = new THREE.Mesh(new THREE.SphereGeometry(0.0125, 10, 8), new THREE.MeshStandardMaterial({ color: COL.bananaTip, roughness: 0.7, transparent: true })); tip.position.copy(curve.getPoint(s + 0.5)); g.add(tip); }
+    for (const s of [-0.5, 0.5]) { const tip = new THREE.Mesh(new THREE.SphereGeometry(0.014, 10, 8), new THREE.MeshStandardMaterial({ color: COL.bananaTip, roughness: 0.7, transparent: true })); tip.position.copy(curve.getPoint(s + 0.5)); g.add(tip); }
     g.userData.mats = g.children.map(c => c.material);
     return g;
   }
@@ -243,14 +257,18 @@
       this.camera2 = new THREE.PerspectiveCamera(36, 8 / 9, 0.05, 40); this.camera2.up.set(0, 0, 1);
       this.buildLights(); this.buildKitchen(); this.buildRobot(glb, kin); this.buildTask(); this.buildOverlays3d();
       this.precompute();
+      linObject(this.scene);
+      // the field slices show the 2D palette exactly: no lighting, no tone mapping
+      for (const p of [this.plane, this.topPlane]) { p.material.toneMapped = false; p.material.map.encoding = THREE.sRGBEncoding; }
+      this.ring.material.toneMapped = false;
     }
     buildLights() {
-      const hemi = new THREE.HemisphereLight(0xdfe8f2, 0xb0a08a, 0.75); this.scene.add(hemi);
-      const key = new THREE.DirectionalLight(0xffffff, 0.95); key.position.set(-1.2, -2.2, 3.4); key.castShadow = true;
+      const hemi = new THREE.HemisphereLight(0xe4ecf5, 0x9a8a74, 0.55); this.scene.add(hemi);
+      const key = new THREE.DirectionalLight(0xffffff, 1.05); key.position.set(-1.2, -2.2, 3.4); key.castShadow = true;
       key.shadow.mapSize.set(2048, 2048); key.shadow.camera.near = 0.5; key.shadow.camera.far = 9;
       key.shadow.camera.left = -2.5; key.shadow.camera.right = 2.5; key.shadow.camera.top = 2.5; key.shadow.camera.bottom = -2.5; key.shadow.bias = -0.0008;
       this.scene.add(key); this.scene.add(key.target);
-      const fill = new THREE.DirectionalLight(0xffffff, 0.35); fill.position.set(2.5, -1.5, 2.0); this.scene.add(fill);
+      const fill = new THREE.DirectionalLight(0xffffff, 0.28); fill.position.set(2.5, -1.5, 2.0); this.scene.add(fill);
     }
     buildKitchen() {
       const K = new THREE.Group(); K.name = 'kitchen'; this.scene.add(K);
@@ -289,18 +307,20 @@
       const frame2 = frame.clone(); frame2.position.z = 1.39; K.add(frame2);
       // mobile base for the robot (Omron-like)
       const B = new THREE.Group(); B.name = 'mobileBase'; this.baseGroup = B; K.add(B);
-      B.position.set(0.30, -0.50, 0);
+      B.position.set(MOUNT_X, -0.44, 0);
       const chassis = box(0.52, 0.70, 0.26, COL.base, { rough: 0.5, metal: 0.2 }); chassis.position.set(0, 0, 0.21); B.add(chassis);
       const topPlate = box(0.56, 0.74, 0.03, COL.baseLight, { rough: 0.4, metal: 0.3 }); topPlate.position.set(0, 0, 0.355); B.add(topPlate);
       for (const [dx, dy] of [[-0.2, -0.25], [0.2, -0.25], [-0.2, 0.25], [0.2, 0.25]]) { const w = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.06, 20), new THREE.MeshStandardMaterial({ color: COL.wheel })); w.rotation.z = Math.PI / 2; w.position.set(dx, dy, 0.08); B.add(w); }
-      const column = box(0.30, 0.30, 0.34, COL.baseLight, { rough: 0.5, metal: 0.2 }); column.position.set(0, 0.12, 0.54); B.add(column);
-      const armPlate = box(0.26, 0.26, 0.02, COL.base, { rough: 0.5 }); armPlate.position.set(0, 0.12, 0.72); B.add(armPlate);
-      this.robotMount = new THREE.Vector3(0.30, -0.38, 0.73);
+      const column = box(0.28, 0.28, 0.34, COL.baseLight, { rough: 0.5, metal: 0.2 }); column.position.set(0, 0.22, 0.54); B.add(column);
+      const armPlate = box(0.26, 0.26, 0.02, COL.base, { rough: 0.5 }); armPlate.position.set(0, 0.22, 0.72); B.add(armPlate);
+      this.robotMount = new THREE.Vector3(MOUNT_X, -0.22, 0.73);
     }
     buildRobot(glb, kin) {
       this.panda = new Panda(glb, kin);
       this.panda.root.position.copy(this.robotMount);
+      this.panda.root.rotation.set(0, 0, Math.PI / 2); // Panda base +x faces the counter (+y)
       this.scene.add(this.panda.root);
+      this.panda.root.updateMatrixWorld(true);
     }
     buildTask() {
       const T = new THREE.Group(); T.name = 'task'; this.scene.add(T); this.task = T;
@@ -308,7 +328,8 @@
       this.barrier = box(WORLD.barrierX1 - WORLD.barrierX0, 0.45, WORLD.barrierH, COL.barrier, { rough: 0.6 });
       this.barrier.position.set((WORLD.barrierX0 + WORLD.barrierX1) / 2 + X_OFF, 0.225, COUNTER_Z + WORLD.barrierH / 2); T.add(this.barrier);
       // roof shelf for the "top closed" intervention
-      this.roof = box(0.46, 0.52, 0.03, COL.cabinetDark, { rough: 0.6 }); this.roof.position.set(WORLD.barrierX0 + X_OFF + 0.02, 0.15, COUNTER_Z + WORLD.barrierH + 0.015); this.roof.visible = false; T.add(this.roof);
+      this.roof = box(0.40, 0.50, 0.03, COL.cabinetDark, { rough: 0.6 }); this.roof.position.set((WORLD.barrierX0 + WORLD.barrierX1) / 2 + X_OFF, 0.15, COUNTER_Z + WORLD.barrierH + 0.015); this.roof.material.transparent = true; this.roof.material.opacity = 0.28; this.roof.material.depthWrite = false; this.roof.castShadow = false;
+      this.roof.visible = false; T.add(this.roof);
       this.bowl = makeBowl(); this.bowl.position.set(WORLD.bowlX + X_OFF, Y_TASK, COUNTER_Z); T.add(this.bowl);
       this.banana = makeBanana(); T.add(this.banana);
       this.bananaB = makeBanana(); this.bananaB.visible = false; T.add(this.bananaB); // the "dropped" banana
@@ -320,8 +341,11 @@
       this.plane.position.set((FX0 + FX1) / 2 + X_OFF, Y_FIELD_PLANE, COUNTER_Z + (FZ0 + FZ1) / 2); T.add(this.plane);
       this.topTexCanvas = document.createElement('canvas'); this.topTexCanvas.width = 1200; this.topTexCanvas.height = 640;
       this.topTex = new THREE.CanvasTexture(this.topTexCanvas); this.topTex.minFilter = THREE.LinearFilter;
-      this.topPlane = new THREE.Mesh(new THREE.PlaneGeometry(FX1 - FX0, FZ1 - FZ0), new THREE.MeshBasicMaterial({ map: this.topTex, transparent: true, opacity: 0.0, side: THREE.DoubleSide, depthWrite: false }));
-      this.topPlane.position.set((FX0 + FX1) / 2 + X_OFF, (FZ0 + FZ1) / 2 - 0.10, COUNTER_Z + 0.17); T.add(this.topPlane);
+      // top-view slice: only the part over the counter (field y ≥ TOP_Y_CROP ↔ world y ≥ 0) is shown
+      const cropF = TOP_Y_CROP / (FZ1 - FZ0);
+      this.topTex.repeat.set(1, 1 - cropF); this.topTex.offset.set(0, cropF); // plane v ∈ [0,1] ↔ texture v ∈ [crop, 1] (flipY: v = fy / FZ1)
+      this.topPlane = new THREE.Mesh(new THREE.PlaneGeometry(FX1 - FX0, FZ1 - FZ0 - TOP_Y_CROP), new THREE.MeshBasicMaterial({ map: this.topTex, transparent: true, opacity: 0.0, side: THREE.DoubleSide, depthWrite: false }));
+      this.topPlane.position.set((FX0 + FX1) / 2 + X_OFF, (FZ1 - FZ0 + TOP_Y_CROP) / 2 - 0.10, COUNTER_Z + 0.17); T.add(this.topPlane);
     }
     buildOverlays3d() {
       const O = new THREE.Group(); O.name = 'overlays'; this.scene.add(O); this.ov = O;
@@ -332,6 +356,7 @@
       // waypoint path & candidate fan (scene 2)
       const contact = core.util.contactPoint(); // field coords of the contact pose
       const wp = core.util.arcPath(contact.x, contact.z, WORLD.bowlX - 0.02, 0.14, 0.40, 24).map(p => fieldToWorld(p[0], p[1]));
+      this.wpPts = wp;
       this.waypointTube = tubeFromPoints(wp, 0.007, COL.orange, 64); this.waypointTube.visible = false; O.add(this.waypointTube);
       this.waypointDots = []; for (let i = 1; i <= 5; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.016, 14, 10), new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: COL.orange, emissiveIntensity: 0.6 })); s.position.copy(wp[Math.round(i * 24 / 6)]); s.visible = false; O.add(s); this.waypointDots.push(s); }
       this.fan = []; const rnd = core.util.rng(7);
@@ -344,8 +369,11 @@
       this.straightTube = tubeFromPoints([fieldToWorld(WORLD.start.x, WORLD.start.z), fieldToWorld(WORLD.bowlX - 0.04, WORLD.start.z)], 0.004, COL.blue, 16); this.straightTube.visible = false; O.add(this.straightTube);
       this.chunkDots = []; for (let i = 0; i < 10; i++) { const s = new THREE.Mesh(new THREE.SphereGeometry(0.012, 14, 10), new THREE.MeshStandardMaterial({ color: COL.blue })); s.visible = false; O.add(s); this.chunkDots.push(s); }
       this.chunkTube = null; this.cleanTube = null;
+      // the shared transport path of the fast/slow scene (thin, dashed look via low opacity)
+      const arcPts = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.40, 60).map(p => fieldToWorld(p[0], p[1]).add(new THREE.Vector3(0, 0, 0.012)));
+      this.arcTube = tubeFromPoints(arcPts, 0.003, COL.blue, 96); this.arcTube.visible = false; O.add(this.arcTube);
       // collision ring
-      this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.05, 0.006, 8, 40), new THREE.MeshBasicMaterial({ color: COL.red, transparent: true, opacity: 0 })); this.ring.visible = false; O.add(this.ring);
+      this.ring = new THREE.Mesh(new THREE.TorusGeometry(0.035, 0.005, 8, 40), new THREE.MeshBasicMaterial({ color: COL.red, transparent: true, opacity: 0 })); this.ring.visible = false; O.add(this.ring);
       // second copy of task objects for the split screen (fast/slow)
       this.ghostBanana = makeBanana(); this.ghostBanana.visible = false; O.add(this.ghostBanana);
     }
@@ -354,6 +382,7 @@
       const P = this.panda;
       // target pose builder: tcp at banana grasp point (field coords), gripper pointing down, fingers along y
       const R = new THREE.Matrix4().makeBasis(new THREE.Vector3(-1, 0, 0), new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, -1));
+      P.root.updateMatrixWorld(true);
       const rootInv = new THREE.Matrix4().copy(P.root.matrixWorld).invert();
       this.poseFor = (fx, fz, fy) => {
         const w = fieldToWorld(fx, fz); if (fy != null) w.y = fy;
@@ -371,6 +400,9 @@
       // probe pose (scenes 4, 5)
       const pr = core.F.pStar; this.qProbe = P.ik(this.qStraight[this.qStraight.length - 1], this.poseFor(pr.x, pr.z), 80);
       this.qHome = [0, -0.5, 0, -2.3, 0, 1.9, 0.78];
+      // IK residuals (m) for the record / debugging
+      const res = (traj, qs) => Math.max(...qs.map((q, k) => { const M = P.fk(q), p = new THREE.Vector3().setFromMatrixPosition(M).applyMatrix4(P.root.matrixWorld); const w = fieldToWorld(traj[k][0], traj[k][1]); w.z += 0.012; return p.distanceTo(w); }));
+      this.ikResidual = { straight: res(this.trajStraight, this.qStraight), arc: res(this.trajArc, this.qArc) };
     }
     sampleQ(traj, prog) {
       const n = traj.length - 1, f = clamp(prog, 0, 1) * n, i = Math.min(Math.floor(f), n - 1), fr = f - i;
@@ -394,20 +426,36 @@
     blendCam(A, B, k) { // A,B = [px,py,pz,tx,ty,tz,fov]
       const e = easeIO(clamp(k, 0, 1)); const v = A.map((a, i) => lerp(a, B[i], e)); this.lookFrom(...v); }
     // field texture refresh (drawn by the 2D field code)
+    // repaint only when the visible content changes (cut quantized to 1/200 of tmax)
+    texKey(mode, cut, opts) {
+      const f = core.F[opts.field || 'L0'], c = cut == null ? 'all' : Math.round(clamp(cut / f.tmax, 0, 1.0001) * 200);
+      return [mode, opts.field || 'L0', c, Math.round((opts.quiver || 0) * 50), opts.contoursOnly ? 1 : 0].join('|');
+    }
     paintPlane(mode, cut, opts) {
-      core.paintFieldTexture(this.planeTexCanvas, mode, cut, opts || {});
+      opts = opts || {}; const k = this.texKey(mode, cut, opts);
+      if (k === this.planeKey) return; this.planeKey = k;
+      core.paintFieldTexture(this.planeTexCanvas, mode, cut, opts);
       this.planeTex.needsUpdate = true;
     }
-    paintTop(fieldKey, cut) { core.paintFieldTexture(this.topTexCanvas, 'T', cut, { field: fieldKey, top: true }); this.topTex.needsUpdate = true; }
-    project(v) { // world → overlay px
-      const p = v.clone().project(this.camera); return [(p.x + 1) / 2 * core.W, (1 - p.y) / 2 * core.H];
+    paintTop(fieldKey, cut) {
+      const opts = { field: fieldKey, top: true }, k = this.texKey('T', cut, opts);
+      if (k === this.topKey) return; this.topKey = k;
+      core.paintFieldTexture(this.topTexCanvas, 'T', cut, opts); this.topTex.needsUpdate = true;
     }
+    project(v, cam, x0, w) { // world → overlay px (optionally inside a viewport [x0, x0+w])
+      cam = cam || this.camera; x0 = x0 || 0; w = w || core.W;
+      cam.updateMatrixWorld(); cam.matrixWorldInverse.copy(cam.matrixWorld).invert();
+      const p = v.clone().project(cam); if (p.z > 1) return null;
+      return [x0 + (p.x + 1) / 2 * w, (1 - p.y) / 2 * core.H];
+    }
+    // everything the 2D overlay needs from this frame, as plain data
+    frameInfo() { return { labels: this.labelsOut || [], anchors: this.anchorsOut || {} }; }
     hideAll() {
       const A = this.arrows; for (const k of ['attract', 'repel', 'net', 'grad']) A[k].visible = false; A.guide.forEach(a => a.visible = false);
       this.probeMarker.visible = false; this.waypointTube.visible = false; this.waypointDots.forEach(d => d.visible = false); this.fan.forEach(f => f.visible = false);
-      this.straightTube.visible = false; this.chunkDots.forEach(d => d.visible = false); if (this.chunkTube) this.chunkTube.visible = false; if (this.cleanTube) this.cleanTube.visible = false;
+      this.straightTube.visible = false; this.arcTube.visible = false; this.chunkDots.forEach(d => d.visible = false); if (this.chunkTube) this.chunkTube.visible = false; if (this.cleanTube) this.cleanTube.visible = false;
       this.ring.visible = false; this.plane.material.opacity = 0; this.topPlane.material.opacity = 0; this.roof.visible = false; this.bananaB.visible = false; this.ghostBanana.visible = false;
-      this.barrier.visible = true; this.barrier.scale.set(1, 1, 1); this.barrier.position.z = COUNTER_Z + WORLD.barrierH / 2;
+      this.barrier.visible = true; this.barrier.scale.set(1, 1, 1); this.barrier.position.set((WORLD.barrierX0 + WORLD.barrierX1) / 2 + X_OFF, 0.225, COUNTER_Z + WORLD.barrierH / 2);
       this.setOpacity(1); this.split = false;
     }
 
@@ -416,46 +464,63 @@
       this.hideAll();
       const i = core.sceneIndexAt(t), s = core.SCENES[i], u = t - s.start;
       this.labels = []; // 3D-anchored labels for the overlay: {pos:Vector3, text, color, size, dx, dy, alpha}
-      const CAM_MAIN = [1.05, -1.85, 1.95, 0.28, 0.22, 1.00, 36];
-      const CAM_SIDE = [0.42, -2.05, 1.42, 0.38, 0.25, 1.06, 32];
-      const CAM_TITLE = [1.9, -2.6, 1.7, 0.2, 0.2, 1.0, 40];
+      this.anchors = {}; // named 3D points the overlay needs in screen space
+      const CAM_MAIN = [0.95, -1.75, 1.95, 0.25, 0.22, 1.08, 34];   // front-right, RoboCasa agentview-like
+      const CAM_SIDE = [0.66, -1.80, 1.42, 0.66, 0.33, 1.20, 32];   // frontal, slice plane on the left 2/3
+      const CAM_GUIDE = [0.95, -1.62, 1.72, 0.58, 0.22, 1.16, 34];  // task on the left half, pipeline on the right
+      const CAM_TOP = [0.62, -1.05, 2.35, 0.62, 0.22, 1.02, 36];    // looking down on the top-view slice
+      const CAM_TITLE = [0.55, -2.75, 1.95, -0.40, 0.20, 1.12, 40];
+      this.CAM_SPLIT = [0.42, -1.95, 1.62, 0.36, 0.22, 1.13, 34];
       switch (s.id) {
         case 'title': {
-          const k = u / s.dur; this.lookFrom(lerp(1.9, 1.3, k), lerp(-2.6, -2.3, k), lerp(1.7, 1.85, k), 0.25, 0.2, 1.0, 40);
+          const k = u / s.dur; this.lookFrom(lerp(CAM_TITLE[0], 0.40, k), lerp(CAM_TITLE[1], -2.55, k), CAM_TITLE[2], CAM_TITLE[3], CAM_TITLE[4], CAM_TITLE[5], CAM_TITLE[6]);
           this.setRobot(this.qHome, 0.04, null);
           this.paintPlane('T', core.F.L0.tmax * sramp(u, 0.2, 5.5), { contoursOnly: true });
           this.plane.material.opacity = 0.9 * ramp(u, 0.2, 1.5);
           break;
         }
         case 'task': {
-          this.blendCam(CAM_TITLE, CAM_MAIN, u / 2.5);
+          this.blendCam([0.40, -2.55].concat(CAM_TITLE.slice(2)), CAM_MAIN, u / 2.5); // continue from the title's end framing
           const m = sramp(u, 2.0, 6.0);
           const q = this.sampleQ(this.qStraight, m), p = this.sampleP(this.trajStraight, m);
           this.setRobot(q, 0.018, p);
-          if (u > 2 && u < 12) { this.straightTube.visible = true; this.straightTube.material.opacity = fade(u, 2, 2.6, 10.5, 12) * 0.85; }
+          const ia = ramp(u, 0.6, 1.6) * (1 - ramp(u, 11.5, 12.2));
+          this.labels.push({ pos: fieldToWorld(WORLD.barrierX1, WORLD.barrierH * 0.35).setY(0.0), text: 'barrier', color: '#4C5868', size: 24, weight: 600, dx: 12, alpha: ia });
+          this.labels.push({ pos: fieldToWorld(WORLD.bowlX, 0).setY(Y_TASK - 0.10), text: 'bowl', color: '#4C5868', size: 24, weight: 600, align: 'center', dy: 34, alpha: ia });
+          if (u > 2 && u < 12) {
+            const pa = fade(u, 2, 2.6, 10.5, 12);
+            this.straightTube.visible = true; this.straightTube.material.opacity = pa * 0.85;
+            this.labels.push({ pos: fieldToWorld(WORLD.bowlX - 0.04, WORLD.start.z), text: 'VLA proposal: straight to the bowl', color: '#2F5BB7', size: 24, weight: 600, dx: 14, dy: 8, alpha: pa });
+          }
           const flash = u > 6 ? fade(u, 6, 6.15, 7.2, 8.5) : 0;
           if (flash > 0) {
             const c = fieldToWorld(WORLD.barrierX0, p[1] - 0.01); c.y = Y_TASK - 0.09;
-            this.ring.visible = true; this.ring.position.copy(c); this.ring.rotation.set(Math.PI / 2, 0, 0); const sc = 1 + (u - 6) * 1.6; this.ring.scale.set(sc, sc, sc); this.ring.material.opacity = flash;
-            this.labels.push({ pos: c.clone().add(new THREE.Vector3(0, -0.05, 0.08)), text: 'collision', color: '#C43D32', size: 26, weight: 600, alpha: flash });
+            this.ring.visible = true; this.ring.position.copy(c); this.ring.rotation.set(Math.PI / 2, 0, 0); const sc = 1 + (u - 6) * 0.7; this.ring.scale.set(sc, sc, sc); this.ring.material.opacity = flash;
+            this.labels.push({ pos: c.clone().add(new THREE.Vector3(-0.07, 0, 0.09)), text: 'collision', color: '#C43D32', size: 28, weight: 700, align: 'right', alpha: flash });
           }
           if (u > 12 && u < 20.5) {
             const al = fade(u, 12, 12.6, 19.6, 20.5), prog = sramp(u, 12.8, 15.2);
             this.waypointTube.visible = true; setTubeProgress(this.waypointTube, prog); this.waypointTube.material.opacity = al;
             this.waypointDots.forEach((d, k) => { d.visible = prog * 6 > k + 1; });
+            this.anchors.wpMid = this.wpPts[11].clone(); this.anchors.wpLink = this.wpPts[17].clone();
           }
           if (u > 20 && u < 28.5) {
             const al = fade(u, 20, 20.6, 27.6, 28.5), prog = sramp(u, 20.6, 23.2);
-            this.fan.forEach(f => { f.visible = true; setTubeProgress(f, prog); f.material.opacity = al * (f.userData.ok ? 0.9 : 0.55); });
+            this.fan.forEach(f => {
+              f.visible = true; setTubeProgress(f, prog); f.material.opacity = al * (f.userData.ok ? 0.9 : 0.55);
+              if (prog >= 1) this.labels.push({ pos: f.userData.end, text: f.userData.score, color: '#5B6676', size: 18, dx: 8, dy: -6, alpha: al });
+            });
+            this.anchors.fanMid = fieldToWorld(0.60, 0.31);
           }
           if (u > 28) {
             const al = ramp(u, 28, 28.8), from = fieldToWorld(p[0], p[1]); from.y -= 0.12;
             setArrow(this.arrows.grad, from, new THREE.Vector3(0.25, 0, 1), 0.22 * al); this.arrows.grad.userData.mat.opacity = 1;
+            this.labels.push({ pos: from.clone().add(new THREE.Vector3(0.07, 0, 0.24 * al)), text: '−∇E', color: '#D4702A', size: 36, math: true, alpha: al });
           }
           break;
         }
         case 'guide': {
-          this.blendCam(CAM_MAIN, [0.55, -1.75, 1.55, 0.30, 0.25, 1.05, 34], u / 2.0);
+          this.blendCam(CAM_MAIN, CAM_GUIDE, u / 2.0);
           const loopT = 12, uu = u % loopT, tau = clamp(uu / 8.5, 0, 1), inWin = tau >= 0.3 && tau <= 0.8, g = sramp(tau, 0.3, 0.8);
           const Hn = 10, rnd = core.util.rng(3), noise = []; for (let k = 0; k < Hn; k++) noise.push([(rnd() - 0.5) * 0.22, (rnd() - 0.5) * 0.22]);
           const arc = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.40, Hn - 1);
@@ -484,16 +549,16 @@
         case 'stall': {
           this.blendCam(CAM_MAIN, CAM_SIDE, u / 2.5);
           const pr = core.F.pStar;
-          this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]); this.setOpacity(u > 3 ? lerp(1, 0.32, sramp(u, 3, 4.5)) : 1);
+          this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]); this.setOpacity(u > 3 ? lerp(1, GHOST, sramp(u, 3, 4.5)) : 1);
           this.paintPlane('E', null, {}); this.plane.material.opacity = 0.92 * ramp(u, 0, 2.5);
           const parts = core.F.Eloc_parts(pr.x, pr.z), base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01;
-          const sc = 0.012; const a1 = sramp(u, 3.2, 5.0), a2 = sramp(u, 5.0, 6.8), a3 = sramp(u, 6.8, 8.2);
+          const sc = 0.03; const a1 = sramp(u, 3.2, 5.0), a2 = sramp(u, 5.0, 6.8), a3 = sramp(u, 6.8, 8.2);
           if (u > 3) {
             this.probeMarker.visible = true; this.probeMarker.position.copy(base);
             const att = new THREE.Vector3(-parts.attract[0], 0, -parts.attract[1]), rep = new THREE.Vector3(-parts.repel[0], 0, -parts.repel[1]);
             if (a1 > 0) { setArrow(this.arrows.attract, base, att, att.length() * sc * a1); this.labels.push({ pos: base.clone().add(att.clone().normalize().multiplyScalar(att.length() * sc * a1 + 0.04)), text: 'attraction', color: '#2F5BB7', size: 22, weight: 600, alpha: a1 }); }
             if (a2 > 0) { setArrow(this.arrows.repel, base, rep, rep.length() * sc * a2); this.labels.push({ pos: base.clone().add(rep.clone().normalize().multiplyScalar(rep.length() * sc * a2 + 0.05)), text: 'repulsion', color: '#C43D32', size: 22, weight: 600, alpha: a2, align: 'right' }); }
-            if (a3 > 0) { const net = att.clone().add(rep); setArrow(this.arrows.net, base, net, net.length() * sc * 3 * a3); this.labels.push({ pos: base.clone().add(new THREE.Vector3(0.02, 0, -0.10)), text: 'net: no upward component', color: '#1C2533', size: 24, weight: 600, alpha: a3 }); }
+            if (a3 > 0) { const net = att.clone().add(rep), nl = net.length() * sc * 3 * a3; setArrow(this.arrows.net, base, net, nl); this.labels.push({ pos: base.clone().add(net.clone().normalize().multiplyScalar(nl)), text: 'net: no upward component', color: '#1C2533', size: 24, weight: 700, dx: 16, dy: 26, alpha: a3 }); }
           }
           break;
         }
@@ -501,19 +566,19 @@
           const pr = core.F.pStar;
           if (u < 16) {
             this.lookFrom(...CAM_SIDE);
-            this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]); this.setOpacity(0.32);
+            this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]); this.setOpacity(GHOST);
             const cut = core.F.L0.tmax * sramp(u, 0.8, 6.5);
             this.paintPlane('T', cut, { quiver: ramp(u, 8, 9) }); this.plane.material.opacity = 0.92;
             if (u > 8.5) {
               const gq = sramp(u, 8.5, 9.6), g = core.F.L0.gradAt(pr.x, pr.z), L = Math.hypot(g[0], g[1]) || 1;
               const base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01; this.probeMarker.visible = true; this.probeMarker.position.copy(base);
               setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, 0, -g[1] / L), 0.22 * gq); this.arrows.grad.userData.mat.opacity = 1;
-              this.labels.push({ pos: base.clone().add(new THREE.Vector3(-0.05, 0, 0.30)), text: '−∇T: up and over', color: '#9E4F17', size: 26, weight: 600, alpha: gq });
+              this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, 0, -g[1] / L).multiplyScalar(0.22 * gq)), text: '−∇T: up and over', color: '#9E4F17', size: 28, weight: 700, dx: 18, dy: -6, alpha: gq });
             }
           } else if (u < 34) {
             // interventions, sequential: removed (16–22), top closed (22–28), taller (28–34)
             const phase = u < 22 ? 0 : u < 28 ? 1 : 2, u0 = 16 + phase * 6, k = sramp(u, u0, u0 + 1.2);
-            this.setOpacity(0.25);
+            this.setOpacity(GHOST);
             if (phase === 0) {
               this.lookFrom(...CAM_SIDE); this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]);
               this.barrier.scale.set(1, 1, 1 - k); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * (1 - k) / 2; this.barrier.visible = k < 0.99;
@@ -521,15 +586,18 @@
               this.paintPlane('T', cut, { field: 'L1', quiver: ramp(u, u0 + 3.2, u0 + 4) }); this.plane.material.opacity = 0.92;
               this.gradLabel(core.F.L1, pr, u, u0 + 3.6, 'no extra lift');
             } else if (phase === 1) {
-              this.blendCam(CAM_SIDE, [0.55, -1.25, 2.35, 0.32, 0.20, 1.02, 34], k);
+              this.blendCam(CAM_SIDE, CAM_TOP, k);
               this.setRobot(this.qStraight[0], 0.018, [WORLD.start.x, WORLD.start.z]);
-              this.barrier.visible = true; this.barrier.scale.set(1, 1.11, 1); this.barrier.position.y = 0.15; this.roof.visible = true;
+              // wall from the counter's front edge to world y = 0.40 (field y = wallY1); the field treats the
+              // wall as extending past the front, i.e. the only way around is the opening at the back
+              const wy1 = WORLD.top.wallY1 - 0.10; this.barrier.visible = true; this.barrier.scale.set(1, wy1 / 0.45, 1); this.barrier.position.y = wy1 / 2;
+              this.roof.visible = true; this.roof.scale.set(1, wy1 / 0.50, 1); this.roof.position.y = wy1 / 2;
               const cut = core.F.L2.tmax * sramp(u, u0 + 0.8, u0 + 3.5);
               this.paintTop('L2', cut); this.topPlane.material.opacity = 0.9 * ramp(u, u0 + 0.5, u0 + 1.2);
               const fp = [0.30, 0.32]; const g = core.F.L2.gradAt(fp[0], fp[1]), L = Math.hypot(g[0], g[1]) || 1, gq = sramp(u, u0 + 3.6, u0 + 4.4);
               const base = topFieldToWorld(fp[0], fp[1]); base.z += 0.005; this.probeMarker.visible = true; this.probeMarker.position.copy(base);
               setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, -g[1] / L, 0), 0.22 * gq); this.arrows.grad.userData.mat.opacity = 1;
-              this.labels.push({ pos: base.clone().add(new THREE.Vector3(0.05, 0.10, 0.1)), text: 'around the side opening', color: '#9E4F17', size: 24, weight: 600, alpha: gq });
+              this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, -g[1] / L, 0).multiplyScalar(0.22 * gq)), text: '−∇T: toward the side opening', color: '#9E4F17', size: 28, weight: 700, dx: 18, dy: -6, alpha: gq });
             } else {
               this.lookFrom(...CAM_SIDE); this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]);
               const hs = lerp(1, 0.42 / WORLD.barrierH, k); this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2; this.barrier.position.y = 0.225;
@@ -553,26 +621,42 @@
         }
         case 'slip': {
           this.split = true;
-          const dur = [9.0, 4.5], t0 = 1.5, period = 12;
-          this.splitState = dur.map((d, pi) => {
-            let sIn = ((u - t0) % period + period) % period; if (u < t0) sIn = 0;
-            const prog = clamp(sIn / d, 0, 1), slipped = pi === 1 && sIn > d * 0.5 && sIn < period - 0.1;
-            return { prog, slipped, sIn, d };
-          });
+          const S = core.util.SLIP;
           // camera for both halves (same framing)
-          const cam = [0.45, -1.65, 1.55, 0.30, 0.25, 1.08, 34]; this.lookFrom(...cam);
-          this.camera2.position.copy(this.camera.position); this.camera2.lookAt(0.30, 0.25, 1.08); this.camera2.fov = 34; this.camera2.updateProjectionMatrix();
+          const cam = this.CAM_SPLIT; this.lookFrom(...cam);
+          this.arcTube.visible = true; this.arcTube.material.opacity = 0.55 * ramp(u, 0.3, 1.2);
+          this.camera2.position.copy(this.camera.position); this.camera2.lookAt(cam[3], cam[4], cam[5]); this.camera2.fov = cam[6]; this.camera2.updateProjectionMatrix();
+          this.splitState = S.dur.map((d, pi) => {
+            let sIn = ((u - S.t0) % S.period + S.period) % S.period; if (u < S.t0) sIn = 0;
+            const prog = clamp(sIn / d, 0, 1), slipped = pi === 1 && sIn > d * 0.5 && sIn < S.period - 0.1;
+            const st = { prog, slipped, sIn, d, q: this.sampleQ(this.qArc, prog), p: this.sampleP(this.trajArc, prog), dx: 0, pitch: 0, drop: null };
+            if (pi === 1 && !slipped) { const lag = clamp((1 / d) * 0.4 * Math.sin(Math.PI * prog), 0, 0.08); st.dx = -lag; st.pitch = lag * 4; }
+            if (slipped) {
+              // released at the apex with the path's horizontal speed, falls (slowed g for legibility) onto the counter
+              const tf = sIn - d * 0.5, apex = this.sampleP(this.trajArc, 0.5), g = 3.0, rest = 0.03;
+              const z0 = apex[1] - 0.01, tLand = Math.sqrt(2 * (z0 - rest) / g), te = Math.min(tf, tLand);
+              const vx = (WORLD.bowlX - WORLD.start.x) / d * 0.9, fx = apex[0] - 0.05 + vx * te + 0.03 * Math.max(0, Math.min(tf - tLand, 0.3));
+              const fz = z0 - 0.5 * g * te * te;
+              st.drop = { pos: fieldToWorld(fx, fz), rot: -Math.PI * te / tLand }; // half a turn in the air, lands flat
+              const la = fade(sIn, d * 0.5, d * 0.5 + 0.3, S.period - 1, S.period - 0.2);
+              const px = this.project(st.drop.pos.clone().add(new THREE.Vector3(0.05, 0, 0.06)), this.camera2, core.W / 2, core.W / 2);
+              if (px) this.labels.push({ px, text: 'slip', color: '#C43D32', size: 30, weight: 700, alpha: la });
+            }
+            return st;
+          });
           break;
         }
       }
-      this.labelsOut = this.labels;
+      this.labelsOut = this.labels.map(l => Object.assign({}, l, { px: l.px || this.project(l.pos) }));
+      this.anchorsOut = {};
+      for (const [k, v] of Object.entries(this.anchors)) this.anchorsOut[k] = Array.isArray(v) ? v : this.project(v);
     }
     gradLabel(field, pr, u, t0, text) {
       const gq = sramp(u, t0, t0 + 0.8); if (gq <= 0) return;
       const g = field.gradAt(pr.x, pr.z), L = Math.hypot(g[0], g[1]) || 1, base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01;
       this.probeMarker.visible = true; this.probeMarker.position.copy(base);
       setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, 0, -g[1] / L), 0.22 * gq); this.arrows.grad.userData.mat.opacity = 1;
-      this.labels.push({ pos: base.clone().add(new THREE.Vector3(-0.05, 0, 0.30)), text, color: '#9E4F17', size: 24, weight: 600, alpha: gq });
+      this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, 0, -g[1] / L).multiplyScalar(0.22 * gq)), text: '−∇T: ' + text, color: '#9E4F17', size: 28, weight: 700, dx: 18, dy: -6, alpha: gq });
     }
     // render; handles the split screen of the slip scene
     render() {
@@ -581,18 +665,11 @@
       if (!this.split) { r.setViewport(0, 0, W, H); r.render(this.scene, this.camera); return; }
       r.setScissorTest(true);
       const halves = [[0, this.splitState[0]], [W / 2, this.splitState[1]]];
-      halves.forEach(([x0, st], pi) => {
+      halves.forEach(([x0, st]) => {
         // pose robot + banana for this half
-        const q = this.sampleQ(this.qArc, st.prog), p = this.sampleP(this.trajArc, st.prog);
-        let dx = 0, pitch = 0;
-        if (pi === 1 && !st.slipped) { const lag = clamp((1 / st.d) * 0.4 * Math.sin(Math.PI * st.prog), 0, 0.08); dx = -lag; pitch = lag * 4; }
-        this.setRobot(q, st.slipped ? 0.04 : 0.018, st.slipped ? null : p, { dx, pitch });
-        this.bananaB.visible = false;
-        if (st.slipped) {
-          const tf = st.sIn - st.d * 0.5, apex = this.trajArc[30];
-          const fz = Math.max(WORLD.barrierH + 0.03, apex[1] - 0.01 - 0.5 * 2.2 * tf * tf), fx = apex[0] - 0.05 + 0.2 * tf;
-          const w = fieldToWorld(fx, fz); this.bananaB.position.copy(w); this.bananaB.rotation.set(0, -tf * 2.0, 0); this.bananaB.visible = true;
-        }
+        this.setRobot(st.q, st.slipped ? 0.04 : 0.018, st.slipped ? null : st.p, { dx: st.dx, pitch: st.pitch });
+        this.bananaB.visible = !!st.drop;
+        if (st.drop) { this.bananaB.position.copy(st.drop.pos); this.bananaB.rotation.set(0, st.drop.rot, 0); }
         this.scene.updateMatrixWorld(true);
         r.setViewport(x0, 0, W / 2, H); r.setScissor(x0, 0, W / 2, H);
         r.render(this.scene, this.camera2);
@@ -606,7 +683,7 @@
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
     renderer.setPixelRatio(1); renderer.setSize(core.W, core.H, false);
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+    renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.92;
     const [glbBuf, kin] = await Promise.all([fetch(assetBase + 'panda.glb').then(r => r.arrayBuffer()), fetch(assetBase + 'panda_kin.json').then(r => r.json())]);
     const glb = parseGLB(glbBuf);
     return new World(renderer, glb, kin);
