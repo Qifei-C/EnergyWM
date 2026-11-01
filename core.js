@@ -1255,7 +1255,6 @@
     text(ctx, 'Not a smarter planner carried forever — a teacher the robot outgrows.', 960, 740, { fam: SERIF, weight: 600, size: 38, color: C.orangeDeep, align: 'center' });
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 25, 26);
-    spaced(ctx, 'STATUS: CONCEPT / HYPOTHESIS  ·  NO RESULTS ARE SHOWN', 160, 830, { size: 17, weight: 600, color: C.mute, spacing: 2.4 });
     text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011', 160, 866, { size: 16, color: C.faint });
     text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 894, { size: 16, color: C.faint });
     ctx.restore();
@@ -1312,9 +1311,15 @@
     progressLine(ctx, t / DUR);
   }
 
+  // true where the overlay fully covers the 3D layer (diagram beats): capture may update the 3D at a low rate there
+  function overlayCovers(t) {
+    const i = sceneIndexAt(t), s = SCENES[i], u = t - s.start;
+    if (u < FADE + 0.05 || u > s.dur - 0.05) return false;
+    return !!OPAQUE[s.id] || (s.id === 'tools' && u > TL.tools.table + 1);
+  }
   const util = { clamp, lerp, ramp, sramp, easeIO, easeOut, fade, WORLD, FX0, FX1, FZ0, FZ1, rng: mulberry32, arcPath, contactPoint, guideTau, SLIP, TL, rgba };
   return {
-    W, H, C, SCENES, DUR, FADE, createEnv, draw, sceneIndexAt, buildFields, util, paintFieldTexture, setMath,
+    W, H, C, SCENES, DUR, FADE, createEnv, draw, sceneIndexAt, buildFields, util, paintFieldTexture, setMath, overlayCovers,
     get F() { return getF(); }
   };
 });

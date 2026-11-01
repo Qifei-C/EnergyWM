@@ -11,11 +11,13 @@
   const headless = params.get('headless') === '1';
   const assetBase = window.MG_ASSET_BASE != null ? window.MG_ASSET_BASE : 'assets/';
   if (headless) document.documentElement.classList.add('headless');
+  // capture options: aa=0 (no MSAA), scale=<3D internal resolution>, out=720 (composite size), q3d=1 (3D at 2 fps behind diagrams)
+  window.MG_RENDER_OPTS = { aa: params.get('aa') !== '0', scale: params.get('scale') ? +params.get('scale') : 1, outH: +(params.get('out') || 1080), q3d: params.get('q3d') === '1' };
 
   const gl = document.getElementById('gl'), prev = document.getElementById('glprev'), ui = document.getElementById('ui');
   for (const c of [prev, ui]) { c.width = W; c.height = H; }
   const uiCtx = ui.getContext('2d'), prevCtx = prev.getContext('2d');
-  let world = null, env = null, ready = false, prevCache = { i: -1, fi: null };
+  let world = null, env = null, ready = false, prevCache = { i: -1, fi: null }, last3d = null;
   let readyResolve; window.__ready = false; window.__readyPromise = new Promise(r => { readyResolve = r; });
   window.__errors = [];
 
@@ -28,18 +30,32 @@
     if (i > 0 && u < FADE) {
       if (prevCache.i !== i) { // previous scene's last frame, rendered once per transition
         world.update(SCENES[i].start - 0.001); world.render();
-        prevCtx.clearRect(0, 0, W, H); prevCtx.drawImage(gl, 0, 0);
+        prevCtx.clearRect(0, 0, W, H); prevCtx.drawImage(gl, 0, 0, W, H);
         prevCache = { i, fi: world.frameInfo() };
       }
       fiPrev = prevCache.fi;
       prev.style.opacity = String(1 - easeIO(u / FADE)); prev.style.visibility = 'visible';
     } else prev.style.visibility = 'hidden';
-    world.update(t); world.render();
+    const ro = window.MG_RENDER_OPTS;
+    if (ro.q3d && core.overlayCovers(t)) { const tq = Math.floor(t * 2) / 2; if (last3d !== tq) { world.update(tq); world.render(); last3d = tq; } }
+    else { world.update(t); world.render(); last3d = null; }
     uiCtx.setTransform(1, 0, 0, 1, 0, 0); uiCtx.globalAlpha = 1; uiCtx.clearRect(0, 0, W, H);
     core.draw(uiCtx, t, env, world.frameInfo(), fiPrev);
     return true;
   }
   window.__render = function (t) { return renderAt(+t); };
+  // headless capture: render t, composite the three layers, return a base64 JPEG (no page screenshot needed)
+  let comp = null;
+  window.__frame = function (t, q) {
+    if (!renderAt(+t)) return null;
+    const oh = window.MG_RENDER_OPTS.outH || H, ow = Math.round(oh * W / H);
+    if (!comp) comp = Object.assign(document.createElement('canvas'), { width: ow, height: oh });
+    const c = comp.getContext('2d');
+    c.globalAlpha = 1; c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(gl, 0, 0, ow, oh);
+    if (prev.style.visibility === 'visible') { c.globalAlpha = +prev.style.opacity; c.drawImage(prev, 0, 0, ow, oh); c.globalAlpha = 1; }
+    c.drawImage(ui, 0, 0, ow, oh);
+    return comp.toDataURL('image/jpeg', q || 0.92).slice(23); // strip "data:image/jpeg;base64,"
+  };
 
   async function boot() {
     const faces = ['400 40px Lora', '600 40px Lora', 'italic 400 40px Lora', 'italic 600 40px Lora',

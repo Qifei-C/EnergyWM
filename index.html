@@ -1351,7 +1351,6 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
     text(ctx, 'Not a smarter planner carried forever — a teacher the robot outgrows.', 960, 740, { fam: SERIF, weight: 600, size: 38, color: C.orangeDeep, align: 'center' });
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 25, 26);
-    spaced(ctx, 'STATUS: CONCEPT / HYPOTHESIS  ·  NO RESULTS ARE SHOWN', 160, 830, { size: 17, weight: 600, color: C.mute, spacing: 2.4 });
     text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011', 160, 866, { size: 16, color: C.faint });
     text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 894, { size: 16, color: C.faint });
     ctx.restore();
@@ -1408,9 +1407,15 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
     progressLine(ctx, t / DUR);
   }
 
+  // true where the overlay fully covers the 3D layer (diagram beats): capture may update the 3D at a low rate there
+  function overlayCovers(t) {
+    const i = sceneIndexAt(t), s = SCENES[i], u = t - s.start;
+    if (u < FADE + 0.05 || u > s.dur - 0.05) return false;
+    return !!OPAQUE[s.id] || (s.id === 'tools' && u > TL.tools.table + 1);
+  }
   const util = { clamp, lerp, ramp, sramp, easeIO, easeOut, fade, WORLD, FX0, FX1, FZ0, FZ1, rng: mulberry32, arcPath, contactPoint, guideTau, SLIP, TL, rgba };
   return {
-    W, H, C, SCENES, DUR, FADE, createEnv, draw, sceneIndexAt, buildFields, util, paintFieldTexture, setMath,
+    W, H, C, SCENES, DUR, FADE, createEnv, draw, sceneIndexAt, buildFields, util, paintFieldTexture, setMath, overlayCovers,
     get F() { return getF(); }
   };
 });
@@ -1753,6 +1758,12 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       const column = box(0.28, 0.28, 0.34, COL.baseLight, { rough: 0.4, metal: 0.4 }); column.position.set(0, 0.22, 0.54); B.add(column);
       const armPlate = box(0.26, 0.26, 0.02, COL.base, { rough: 0.5 }); armPlate.position.set(0, 0.22, 0.72); B.add(armPlate);
       this.robotMount = new THREE.Vector3(MOUNT_X, -0.22, 0.73);
+      // performance: large matte backdrop surfaces use Lambert shading (per-vertex lighting, still shadowed and fogged);
+      // metal parts keep PBR + environment reflections. In software WebGL this halves the frame cost.
+      K.traverse(o => {
+        if (!o.isMesh || !o.material.isMeshStandardMaterial || o.material.metalness >= 0.5) return;
+        const m = o.material; o.material = new THREE.MeshLambertMaterial({ color: m.color, map: m.map, emissive: m.emissive, emissiveIntensity: m.emissiveIntensity });
+      });
     }
     buildRobot(glb, kin) {
       this.panda = new Panda(glb, kin);
@@ -1827,6 +1838,10 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       this.trajArc = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.40, 60);
       this.qArc = this.solvePath(this.trajArc);
       const pr = core.F.pStar; this.qProbe = P.ik(this.qStraight[this.qStraight.length - 1], this.poseFor(pr.x, pr.z), 80);
+      this.probeProg = (pr.x - WORLD.start.x) / (contact.x - WORLD.start.x); // the stall point lies on the straight approach
+      this.poseAtW = (w) => { const v = w.clone(); v.z -= 0.004; const M = new THREE.Matrix4().copy(R); M.setPosition(v); return new THREE.Matrix4().multiplyMatrices(rootInv, M); };
+      this.solvePathW = (ws, q0) => { let q = q0.slice(); const out = []; for (const w of ws) { q = P.ik(q, this.poseAtW(w), 60); out.push(q.slice()); } return out; };
+      this.buildStreams();
       this.qHome = [0, -0.5, 0, -2.3, 0, 1.9, 0.78];
       // open layout (no barrier): approach, grasp from the counter, lift, carry low, place in the bowl
       const S = WORLD.start, seg = (a, b, n) => { const o = []; for (let i = 1; i <= n; i++) o.push([lerp(a[0], b[0], i / n), lerp(a[1], b[1], i / n)]); return o; };
@@ -1834,7 +1849,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       this.trajOpen = [[S.x, 0.13]].concat(seg([S.x, 0.13], pick, 10), seg(pick, lift, 10), core.util.arcPath(lift[0], lift[1], place[0], place[1], 0.24, 30).slice(1), seg(place, down, 10));
       this.qOpen = this.solvePath(this.trajOpen, this.qStraight[0]);
       const res = (traj, qs) => Math.max(...qs.map((q, k) => { const M = P.fk(q), p = new THREE.Vector3().setFromMatrixPosition(M).applyMatrix4(P.root.matrixWorld); const w = fieldToWorld(traj[k][0], traj[k][1]); w.z -= 0.004; return p.distanceTo(w); }));
-      this.ikResidual = { straight: res(this.trajStraight, this.qStraight), arc: res(this.trajArc, this.qArc), open: res(this.trajOpen, this.qOpen) };
+      this.ikResidual = Object.assign(this.ikResidual || {}, { straight: res(this.trajStraight, this.qStraight), arc: res(this.trajArc, this.qArc), open: res(this.trajOpen, this.qOpen) });
     }
     // ---- world-model planner, schematic: CEM over short imagined rollouts scored by distance to the goal ----
     buildCem() {
@@ -1864,6 +1879,65 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       const path = []; for (let i = 0; i <= 12; i++) path.push([lerp(p0[0], p1[0], i / 12), lerp(p0[1], p1[1], i / 12)]); for (let i = 1; i <= 12; i++) path.push([lerp(p1[0], p2[0], i / 12), lerp(p1[1], p2[1], i / 12)]);
       this.trajCem = path; this.qCem = this.solvePath(path, this.qStraight[0]);
     }
+    // Streamlines of −∇T (banana centre), as the arm would follow them. Where the banana's full length would clip an
+    // obstacle (the field inflates only by gripper + banana thickness), the path is lifted with a smooth envelope.
+    buildStreams() {
+      const half = WORLD.bananaHalf, hh = BANANA_HALF_H, B = { x0: WORLD.barrierX0, x1: WORLD.barrierX1 };
+      const trace = (F, from, maxN) => {
+        const pts = [from.slice()]; let p = from.slice();
+        for (let k = 0; k < 900; k++) {
+          const g = F.gradAt(p[0], p[1]), L = Math.hypot(g[0], g[1]); if (L < 1e-6) break;
+          p = [p[0] - g[0] / L * 0.004, p[1] - g[1] / L * 0.004];
+          const c = F.cell(p[0], p[1]); if (F.goal[c[1] * F.nx + c[0]]) { pts.push(p.slice()); break; }
+          if (k % 3 === 2) pts.push(p.slice());
+        }
+        if (pts.length > maxN) { const o = []; for (let i = 0; i < maxN; i++) o.push(pts[Math.round(i * (pts.length - 1) / (maxN - 1))]); return o; }
+        return pts;
+      };
+      const lift = (pts, obs) => {
+        const req = pts.map(q => { let r = -1; for (const o of obs) if (q[0] + half > o.x0 && q[0] - half < o.x1) r = Math.max(r, o.h + hh + 0.015); return r; });
+        const n = req.length, mx = req.map((_, i) => { let m = -1; for (let j = Math.max(0, i - 4); j <= Math.min(n - 1, i + 4); j++) m = Math.max(m, req[j]); return m; });
+        const av = mx.map((_, i) => { let s2 = 0, c = 0; for (let j = Math.max(0, i - 2); j <= Math.min(n - 1, i + 2); j++) { s2 += mx[j]; c++; } return s2 / c; });
+        return pts.map((q, i) => [q[0], Math.max(q[1], av[i])]);
+      };
+      const pr = core.F.pStar, probe = [pr.x, pr.z], W2 = WORLD, cup = W2.cup;
+      const bar = h => [{ x0: B.x0, x1: B.x1, h }];
+      const side = (key, obs) => { const pts = lift(trace(core.F[key], probe, 70), obs); return { pts, q: this.solvePath(pts, this.qProbe) }; };
+      this.streams = {
+        L0: side('L0', bar(W2.barrierH)),
+        L1: side('L1', []),
+        L3: side('L3', bar(W2.tallH)),
+        L4: side('L4', bar(W2.barrierH).concat([{ x0: cup.x0, x1: cup.x1, h: cup.h }, { x0: W2.bowlX - W2.bowlR, x1: W2.bowlX + W2.bowlR, h: W2.bowlH }]))
+      };
+      // top view (L2): the banana moves in x–y at fixed height, around the side opening
+      const top = trace(core.F.L2, [0.30, 0.32], 70), ws = top.map(p => topFieldToWorld(p[0], p[1]));
+      const qTop = this.solvePathW(ws, this.qStraight[0]);
+      const P = this.panda, res = Math.max(...qTop.map((q, k) => new THREE.Vector3().setFromMatrixPosition(P.fk(q)).applyMatrix4(P.root.matrixWorld).distanceTo(ws[k].clone().setZ(ws[k].z - 0.004))));
+      this.streams.L2 = { pts: top, ws, q: qTop, ok: res < 0.01 };
+      this.ikResidual = Object.assign(this.ikResidual || {}, { top: res });
+    }
+    // follow a precomputed stream: 0..1 progress, returns {q, p, world?}
+    streamAt(st, k) { const q = this.sampleQ(st.q, k), p = this.sampleP(st.pts, k); return { q, p, world: st.ws ? (() => { const n = st.ws.length - 1, f = clamp(k, 0, 1) * n, i = Math.min(Math.floor(f), n - 1); return st.ws[i].clone().lerp(st.ws[i + 1], f - i); })() : null }; }
+    qMix(a, b, k) { return a.map((v, i) => lerp(v, b[i], k)); }
+    arcAt(k) { // transport along the guided arc, starting from the start pose
+      const q = this.sampleQ(this.qArc, k), p = this.sampleP(this.trajArc, k), b = clamp(k / 0.08, 0, 1);
+      if (b >= 1) return { q, p };
+      return { q: this.qMix(this.qStraight[0], q, b), p: [lerp(WORLD.start.x, p[0], b), lerp(WORLD.start.z, p[1], b)] };
+    }
+    // loop: execute the arc, hold, rewind to the start (schematic "next episode")
+    arcLoop(u, period, t0) {
+      const w = ((u - t0) % period + period) % period; if (u < t0) return this.arcAt(0);
+      if (w < period * 0.58) return this.arcAt(sramp(w, 0, period * 0.58));
+      if (w < period * 0.76) return this.arcAt(1);
+      const r = sramp(w, period * 0.76, period), e = this.arcAt(1);
+      return { q: this.qMix(e.q, this.qStraight[0], r), p: [lerp(e.p[0], WORLD.start.x, r), lerp(e.p[1], WORLD.start.z, r)] };
+    }
+    // follow a stream, then retract to qBack between [t0,t1] / [t1, t2]
+    followAndBack(st, u, t0, t1, t2, qBack, pBack) {
+      if (u < t1) { const a = this.streamAt(st, sramp(u, t0, t1)); a.mv = ramp(u, t0, t0 + 0.4); return a; }
+      const e = this.streamAt(st, 1), r = sramp(u, t1 + 0.1, t2);
+      return { q: this.qMix(e.q, qBack, r), p: [lerp(e.p[0], pBack[0], r), lerp(e.p[1], pBack[1], r)], world: e.world && pBack.world ? e.world.clone().lerp(pBack.world, r) : null, mv: 1 - r };
+    }
     sampleQ(traj, prog) {
       const n = traj.length - 1, f = clamp(prog, 0, 1) * n, i = Math.min(Math.floor(f), n - 1), fr = f - i;
       return traj[i].map((v, k) => lerp(v, traj[i + 1][k], fr));
@@ -1876,7 +1950,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       o = o || {};
       this.panda.q = q; this.panda.fingers = fingers == null ? 0.018 : fingers; this.panda.apply();
       if (bananaField) {
-        const w = fieldToWorld(bananaField[0], bananaField[1]); w.x += o.dx || 0; w.z += o.dz || 0;
+        const w = o.world ? o.world.clone() : fieldToWorld(bananaField[0], bananaField[1]); w.x += o.dx || 0; w.z += o.dz || 0;
         this.banana.position.copy(w); this.banana.rotation.set(0, o.pitch || 0, 0); this.banana.visible = true;
       } else this.banana.visible = false;
     }
@@ -1964,7 +2038,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       switch (s.id) {
         case 'title': {
           const k = u / s.dur; this.lookFrom(lerp(CAM_TITLE[0], CAM_TITLE_END[0], k), lerp(CAM_TITLE[1], CAM_TITLE_END[1], k), CAM_TITLE[2], CAM_TITLE[3], CAM_TITLE[4], CAM_TITLE[5], CAM_TITLE[6]);
-          this.setRobot(this.qHome, 0.04, null);
+          this.setRobot(this.qHome.map((v, j) => v + (j === 0 ? 0.22 * Math.sin(u * 0.45) : j === 1 ? 0.10 * Math.sin(u * 0.6 + 1) : j === 3 ? 0.14 * Math.sin(u * 0.5 + 2) : j === 5 ? 0.10 * Math.sin(u * 0.55) : 0)), 0.04, null);
           this.paintPlane('T', core.F.L0.tmax * sramp(u, 0.2, 5.5), { contoursOnly: true });
           this.plane.material.opacity = 0.9 * ramp(u, 0.2, 1.5);
           break;
@@ -2049,13 +2123,26 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
             for (let k = 2; k <= 7; k++) setArrow(this.arrows.guide[k], P3[k], new THREE.Vector3(0.25, 0, 1), 0.14 * strength * (1 - Math.abs(k - 4.5) / 4));
             this.label(P3[4].clone().add(new THREE.Vector3(0, 0, 0.2)), '−λ∇E', LC.orangeDeep, { size: 34, math: true });
           }
-          this.setRobot(this.qStraight[0], 0.018, start);
+          // after each denoising pass the arm executes the finished chunk, then resets for the next pass
+          const uu = u % 12; let ex = { q: this.qStraight[0], p: start };
+          if (uu >= 8.6 && uu < 11.3) ex = this.arcAt(sramp(uu, 8.6, 11.0));
+          else if (uu >= 11.3) { const e = this.arcAt(1), r = sramp(uu, 11.3, 12); ex = { q: this.qMix(e.q, this.qStraight[0], r), p: [lerp(e.p[0], start[0], r), lerp(e.p[1], start[1], r)] }; }
+          this.setRobot(ex.q, 0.018, ex.p);
           break;
         }
         case 'geom': {
           const G = TL.geom;
           this.blendCam(CAM_MAIN, CAM_SIDE, u / 2.5);
-          this.setRobot(this.qProbe, 0.018, probe); this.setOpacity(lerp(1, GHOST, sramp(u, G.ghost[0], G.ghost[1])));
+          if (u < G.T + 9) {
+            // creep along the straight approach to the stall point, then stay pinned there (small jitter, no escape)
+            const k = sramp(u, 0.3, 3.0) * this.probeProg + (u > 3 && u < G.T ? 0.06 * Math.sin((u - 3) * 4.2) * (1 - ramp(u, G.T - 1.5, G.T - 0.5)) : 0);
+            this.setRobot(this.sampleQ(this.qStraight, k), 0.018, this.sampleP(this.trajStraight, k));
+            this.setOpacity(lerp(1, GHOST, sramp(u, G.ghost[0], G.ghost[1])));
+          } else {
+            // the arm follows −∇T: up and over the barrier into the bowl
+            const a = this.streamAt(this.streams.L0, sramp(u, G.T + 9, G.T + 14.5));
+            this.setRobot(a.q, 0.018, a.p); this.setOpacity(lerp(GHOST, 0.9, sramp(u, G.T + 9, G.T + 10)));
+          }
           const base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01;
           if (u < G.T) {
             this.paintPlane('E', null, {}); this.plane.material.opacity = 0.9 * ramp(u, 0, 2) * (1 - ramp(u, G.T - 0.6, G.T));
@@ -2077,7 +2164,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
         case 'direct': {
           const D = TL.direct;
           this.lookFrom(...CAM_GUIDE);
-          this.setRobot(this.qStraight[0], 0.018, start);
+          { const ex = this.arcAt(sramp(u, D.bend[1] + 1, D.bend[1] + 6.5)); this.setRobot(ex.q, 0.018, ex.p); } // the corrected chunk is executed
           const Hn = 10, arc = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.40, Hn - 1), bend = sramp(u, D.bend[0], D.bend[1]);
           const pts = []; for (let k = 0; k < Hn; k++) { const sx = lerp(WORLD.start.x + 0.03, WORLD.bowlX, k / (Hn - 1)), sz = lerp(WORLD.start.z, 0.13, k / (Hn - 1)); pts.push([lerp(sx, arc[k][0], bend), lerp(sz, arc[k][1], bend)]); }
           const P3 = this.showChunk(pts, ramp(u, 0.5, 1.2));
@@ -2118,14 +2205,17 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
             this.gradAt(core.F.L0, probe, u, 2.5);
           } else if (u < I.goal) {
             const phase = u < PH[1] ? 0 : u < PH[2] ? 1 : 2, u0 = PH[phase], k = sramp(u, u0, u0 + 1.2);
+            const fb = (st, qB, pB) => this.followAndBack(st, u, u0 + 4.6, u0 + 7.0, u0 + 7.9, qB, pB);
+            let mvI = 0;
             if (phase === 0) {
-              this.lookFrom(...CAM_SIDE); this.setRobot(this.qProbe, 0.018, probe);
+              this.lookFrom(...CAM_SIDE); { const a = fb(this.streams.L1, this.qProbe, probe); this.setRobot(a.q, 0.018, a.p); mvI = a.mv; }
               this.barrier.scale.set(1, 1, Math.max(1 - k, 0.01)); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * (1 - k) / 2; this.barrier.visible = k < 0.99;
               this.paintPlane('T', core.F.L1.tmax * sramp(u, u0 + 0.8, u0 + 3.5), { field: 'L1', quiver: ramp(u, u0 + 3.2, u0 + 4) }); this.plane.material.opacity = 0.92;
               this.gradAt(core.F.L1, probe, u, u0 + 3.6);
             } else if (phase === 1) {
               this.blendCam(CAM_SIDE, CAM_TOP, k);
-              this.setRobot(this.qStraight[0], 0.018, start);
+              if (this.streams.L2.ok) { const pB = start.slice(); pB.world = fieldToWorld(start[0], start[1]); const a = fb(this.streams.L2, this.qStraight[0], pB); this.setRobot(a.q, 0.018, start, { world: a.world || pB.world }); mvI = a.mv; }
+              else this.setRobot(this.qStraight[0], 0.018, start);
               const wy1 = WORLD.top.wallY1 - 0.10; this.barrier.scale.set(1, wy1 / 0.45, 1); this.barrier.position.y = wy1 / 2;
               this.roof.visible = true; this.roof.scale.set(1, wy1 / 0.50, 1); this.roof.position.y = wy1 / 2;
               this.paintTop('L2', core.F.L2.tmax * sramp(u, u0 + 0.8, u0 + 3.5)); this.topPlane.material.opacity = 0.9 * ramp(u, u0 + 0.5, u0 + 1.2);
@@ -2133,15 +2223,16 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
               const g = core.F.L2.gradAt(fp[0], fp[1]), L = Math.hypot(g[0], g[1]) || 1, gq = sramp(u, u0 + 3.6, u0 + 4.4);
               if (gq > 0) { const dir = new THREE.Vector3(-g[0] / L, -g[1] / L, 0); this.probeMarker.visible = true; this.probeMarker.position.copy(base); setArrow(this.arrows.grad, base, dir, 0.22 * gq); this.label(base.clone().add(dir.multiplyScalar(0.22 * gq)), '−∇T', LC.orangeDeep, { size: 36, weight: 700, dx: 18, dy: -6, alpha: gq }); }
             } else {
-              this.lookFrom(...CAM_SIDE); this.setRobot(this.qProbe, 0.018, probe);
+              this.lookFrom(...CAM_SIDE); { const a = fb(this.streams.L3, this.qProbe, probe); this.setRobot(a.q, 0.018, a.p); mvI = a.mv; }
               const hs = lerp(1, WORLD.tallH / WORLD.barrierH, k); this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2;
               this.paintPlane('T', core.F.L3.tmax * sramp(u, u0 + 0.8, u0 + 3.5), { field: 'L3', quiver: ramp(u, u0 + 3.2, u0 + 4) }); this.plane.material.opacity = 0.92;
               this.gradAt(core.F.L3, probe, u, u0 + 3.6);
             }
-            this.setOpacity(GHOST);
+            this.setOpacity(lerp(GHOST, 0.75, mvI));
           } else {
             // new instruction: the blue bowl is the goal; the cup must not be touched
-            this.lookFrom(...CAM_SIDE); this.setRobot(this.qProbe, 0.018, probe); this.setOpacity(GHOST);
+            this.lookFrom(...CAM_SIDE);
+            { const a = this.streamAt(this.streams.L4, sramp(u, I.goalCut[1] + 1.6, I.goalCut[1] + 5.6)); this.setRobot(a.q, 0.018, a.p); this.setOpacity(lerp(GHOST, 0.75, ramp(u, I.goalCut[1] + 1.6, I.goalCut[1] + 2.2))); }
             const back = sramp(u, I.goal, I.goal + 1); const hs = lerp(WORLD.tallH / WORLD.barrierH, 1, back); this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2;
             const pop = sramp(u, I.goal, I.goal + 1);
             this.bowl2.visible = true; this.bowl2.scale.setScalar(Math.max(pop, 0.01)); this.cup.visible = true; this.cup.scale.setScalar(Math.max(pop, 0.01));
@@ -2157,16 +2248,17 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
           const V = TL.invest;
           this.lookFrom(...CAM_SIDE);
           const solo = sramp(u, V.C, V.C + 2);
-          this.setRobot(this.qStraight[0], 0.018, start); this.setOpacity(lerp(0.35, 1, solo));
+          const ex = this.arcLoop(u, 6.5, 1.0); this.setRobot(ex.q, 0.018, ex.p); this.setOpacity(lerp(0.35, 1, solo));
+          if (u > V.C) this.label(fieldToWorld(0.62, 0.47), 'target behaviour — to be tested', LC.green, { size: 24, align: 'center', alpha: ramp(u, V.C + 0.5, V.C + 1.5) });
           this.paintPlane('T', null, { quiver: 1 }); this.plane.material.opacity = 0.92 * ramp(u, 0, 1.5) * (1 - solo);
           if (solo < 1) { const base = fieldToWorld(start[0], start[1]); base.y = Y_FIELD_PLANE - 0.01; const g = core.F.L0.gradAt(start[0], start[1]), L = Math.hypot(g[0], g[1]) || 1; setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, 0, -g[1] / L), 0.2, 1 - solo); }
           // consequence-teacher halo: large in A (full JEPA), small in B (light module), gone in C
           const hA = u < V.B ? ramp(u, V.A - 1, V.A) : u < V.C ? 1 : 1 - ramp(u, V.C, V.C + 1);
           if (hA > 0) {
             const r = u < V.B ? 1 : lerp(1, 0.55, sramp(u, V.B, V.B + 1));
-            this.halo.visible = true; this.halo.position.copy(fieldToWorld(start[0], start[1])); this.halo.position.y = Y_TASK; this.halo.rotation.set(Math.PI / 2, 0, 0); this.halo.scale.setScalar(r * (1 + 0.04 * Math.sin(u * 3)));
+            this.halo.visible = true; this.halo.position.copy(fieldToWorld(ex.p[0], ex.p[1])); this.halo.position.y = Y_TASK; this.halo.rotation.set(Math.PI / 2, 0, 0); this.halo.scale.setScalar(r * (1 + 0.04 * Math.sin(u * 3)));
             this.halo.material.opacity = 0.9 * hA;
-            this.label(fieldToWorld(start[0], start[1] + 0.14 * r), u < V.B ? 'JEPA predictor' : 'light module', LC.orangeDeep, { size: 24, align: 'center', alpha: hA });
+            this.label(fieldToWorld(ex.p[0], ex.p[1] + 0.14 * r), u < V.B ? 'JEPA predictor' : 'light module', LC.orangeDeep, { size: 24, align: 'center', alpha: hA });
           }
           break;
         }
@@ -2193,8 +2285,10 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
 
   // ---- boot ----
   async function createWorld(canvas, assetBase) {
-    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, preserveDrawingBuffer: true });
-    renderer.setPixelRatio(1); renderer.setSize(core.W, core.H, false);
+    // capture options (headless): ?aa=0 disables MSAA, ?scale=0.75 renders the 3D layer at a lower internal resolution
+    const ro = (typeof window !== 'undefined' && window.MG_RENDER_OPTS) || {};
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: ro.aa !== false, alpha: false, preserveDrawingBuffer: true });
+    renderer.setPixelRatio(ro.scale || 1); renderer.setSize(core.W, core.H, false);
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.12;
     const [glbBuf, kin, banBuf] = await Promise.all([fetch(assetBase + 'panda.glb').then(r => r.arrayBuffer()), fetch(assetBase + 'panda_kin.json').then(r => r.json()), fetch(assetBase + 'banana.glb').then(r => r.arrayBuffer())]);
@@ -2222,11 +2316,13 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
   const headless = params.get('headless') === '1';
   const assetBase = window.MG_ASSET_BASE != null ? window.MG_ASSET_BASE : 'assets/';
   if (headless) document.documentElement.classList.add('headless');
+  // capture options: aa=0 (no MSAA), scale=<3D internal resolution>, out=720 (composite size), q3d=1 (3D at 2 fps behind diagrams)
+  window.MG_RENDER_OPTS = { aa: params.get('aa') !== '0', scale: params.get('scale') ? +params.get('scale') : 1, outH: +(params.get('out') || 1080), q3d: params.get('q3d') === '1' };
 
   const gl = document.getElementById('gl'), prev = document.getElementById('glprev'), ui = document.getElementById('ui');
   for (const c of [prev, ui]) { c.width = W; c.height = H; }
   const uiCtx = ui.getContext('2d'), prevCtx = prev.getContext('2d');
-  let world = null, env = null, ready = false, prevCache = { i: -1, fi: null };
+  let world = null, env = null, ready = false, prevCache = { i: -1, fi: null }, last3d = null;
   let readyResolve; window.__ready = false; window.__readyPromise = new Promise(r => { readyResolve = r; });
   window.__errors = [];
 
@@ -2239,18 +2335,32 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
     if (i > 0 && u < FADE) {
       if (prevCache.i !== i) { // previous scene's last frame, rendered once per transition
         world.update(SCENES[i].start - 0.001); world.render();
-        prevCtx.clearRect(0, 0, W, H); prevCtx.drawImage(gl, 0, 0);
+        prevCtx.clearRect(0, 0, W, H); prevCtx.drawImage(gl, 0, 0, W, H);
         prevCache = { i, fi: world.frameInfo() };
       }
       fiPrev = prevCache.fi;
       prev.style.opacity = String(1 - easeIO(u / FADE)); prev.style.visibility = 'visible';
     } else prev.style.visibility = 'hidden';
-    world.update(t); world.render();
+    const ro = window.MG_RENDER_OPTS;
+    if (ro.q3d && core.overlayCovers(t)) { const tq = Math.floor(t * 2) / 2; if (last3d !== tq) { world.update(tq); world.render(); last3d = tq; } }
+    else { world.update(t); world.render(); last3d = null; }
     uiCtx.setTransform(1, 0, 0, 1, 0, 0); uiCtx.globalAlpha = 1; uiCtx.clearRect(0, 0, W, H);
     core.draw(uiCtx, t, env, world.frameInfo(), fiPrev);
     return true;
   }
   window.__render = function (t) { return renderAt(+t); };
+  // headless capture: render t, composite the three layers, return a base64 JPEG (no page screenshot needed)
+  let comp = null;
+  window.__frame = function (t, q) {
+    if (!renderAt(+t)) return null;
+    const oh = window.MG_RENDER_OPTS.outH || H, ow = Math.round(oh * W / H);
+    if (!comp) comp = Object.assign(document.createElement('canvas'), { width: ow, height: oh });
+    const c = comp.getContext('2d');
+    c.globalAlpha = 1; c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high'; c.drawImage(gl, 0, 0, ow, oh);
+    if (prev.style.visibility === 'visible') { c.globalAlpha = +prev.style.opacity; c.drawImage(prev, 0, 0, ow, oh); c.globalAlpha = 1; }
+    c.drawImage(ui, 0, 0, ow, oh);
+    return comp.toDataURL('image/jpeg', q || 0.92).slice(23); // strip "data:image/jpeg;base64,"
+  };
 
   async function boot() {
     const faces = ['400 40px Lora', '600 40px Lora', 'italic 400 40px Lora', 'italic 600 40px Lora',
