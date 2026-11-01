@@ -1,0 +1,15 @@
+{
+  "name": "energy-field-teachers-mg",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Motion-graphics explainer (three.js + Canvas 2D) of the research plan: geodesic-progress + predictive-consequence energy fields that gradient-guide small VLAs (π0.5, GR00T) and then retire.",
+  "license": "MIT",
+  "scripts": {
+    "frames2d": "node frames.js 6 17 25 36 47 52 80 95 120 128 141 157 185 212 243 275",
+    "serve": "python3 -m http.server 8787"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "0.1.65",
+    "three": "0.128.0"
+  }
+}

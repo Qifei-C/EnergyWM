@@ -1,0 +1,10 @@
+node_modules/
+preview/
+out/
+frames/
+assets/panda_src/*.obj
+assets/panda_src/*.stl
+*.log
+*.mp4
+*.jpg
+.DS_Store
