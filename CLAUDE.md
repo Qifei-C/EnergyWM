@@ -1,6 +1,6 @@
 # EnergyWM — motion-graphics explainer of the energy-field-teacher research plan
 
-Purpose: a ~4:42, 1920×1080, 30 fps explainer (English captions, academic look) of the plan
+Purpose: a ~7:04, 1920×1080, 30 fps explainer (English captions, academic look) of the plan
 "geodesic progress field + predictive consequence module → gradient-guide small VLAs (π0.5, GR00T) → distill → retire the teacher".
 It is a research *plan* (Concept / Hypothesis, 2026-11-01): never present any number in the film as a result.
 
@@ -14,7 +14,7 @@ It is a research *plan* (Concept / Hypothesis, 2026-11-01): never present any nu
 - World is **Z-up**, metres. Counter top z = 0.92. Field coordinates: `fx = x_world − X_OFF` (X_OFF = −0.25), `fz = z_world − 0.92`; object plane y = 0.22.
 - Determinism: no `Date.now()`/`Math.random()` in frame code; use `core.util.rng(seed)`. IK is precomputed once at init.
 - Keep a scene's drawing inside its own function; crossfades (0.5 s) are composited by the engine.
-- Captions: `[start, end, text]` lists per scene, max two lines, English, no claims of results.
+- Captions: `[start, end, text]` lists per scene, ONE short line each (≤ ~80 chars), English, no claims of results. Keep on-screen text to titles, formulas and short labels; split dense ideas into beats (`core.util.TL`) rather than adding text.
 - Fonts: Lora (display, formulas in italic) + Inter (body/labels); font stacks include DejaVu fallbacks for ∇ ∈ ‖.
 
 ## Rendering the MP4

@@ -1,6 +1,6 @@
 # Energy-Field Teachers for Small VLAs — MG 动画
 
-研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 4:42、学术汇报风、英文字幕。
+研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 7:04、学术汇报风、英文字幕。
 内容是研究计划（Concept / Hypothesis，2026-11-01）；片中所有数字都标为假设，不是实验结果。
 
 ## 目标形态

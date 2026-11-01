@@ -5,6 +5,8 @@ const fs = require('fs'), path = require('path');
 const R = p => fs.readFileSync(path.join(__dirname, p), 'utf8');
 
 const TITLE = 'Energy-Field Teachers';
+const core = require('./core.js');
+const LEN = `${Math.floor(core.DUR / 60)}:${String(Math.round(core.DUR % 60)).padStart(2, '0')}`;
 const CSS = `
 :root {
   --bg: #F3F4F7; --fg: #1C2533; --muted: #5B6676; --panel: #FFFFFF; --line: #D5DBE3; --accent: #2F5BB7; --accent-fg: #FFFFFF; --stage: #F6F7F9;
@@ -59,7 +61,7 @@ const BODY = `
 <main class="wrap">
   <header class="chrome">
     <h1>Energy-Field Teachers for Small VLAs</h1>
-    <p>Motion-graphics explainer of a research plan (concept / hypothesis, 2026-11-01) · 4:42 · nothing shown is an experimental result</p>
+    <p>Motion-graphics explainer of a research plan (concept / hypothesis, 2026-11-01) · ${LEN} · nothing shown is an experimental result</p>
   </header>
   <div id="stage" class="stage" role="img" aria-label="Animated explainer: robot kitchen scene with energy-field overlays">
     <canvas id="gl" width="1920" height="1080"></canvas>
@@ -72,8 +74,8 @@ const BODY = `
       <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>
       <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>
     </button>
-    <span id="time" class="time">0:00 / 4:42</span>
-    <input id="scrub" type="range" min="0" max="282" value="0" step="0.01" aria-label="Timeline">
+    <span id="time" class="time">0:00 / ${LEN}</span>
+    <input id="scrub" type="range" min="0" max="${core.DUR}" value="0" step="0.01" aria-label="Timeline">
     <select id="speed" aria-label="Playback speed">
       <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option>
     </select>

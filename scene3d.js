@@ -481,39 +481,37 @@
         }
         case 'task': {
           this.blendCam([0.40, -2.55].concat(CAM_TITLE.slice(2)), CAM_MAIN, u / 2.5); // continue from the title's end framing
-          const m = sramp(u, 2.0, 6.0);
+          const TT = core.util.TL.task;
+          const m = sramp(u, TT.move[0], TT.move[1]);
           const q = this.sampleQ(this.qStraight, m), p = this.sampleP(this.trajStraight, m);
           this.setRobot(q, 0.018, p);
-          const ia = ramp(u, 0.6, 1.6) * (1 - ramp(u, 11.5, 12.2));
+          const ia = ramp(u, 0.6, 1.6) * (1 - ramp(u, TT.propEnd - 0.5, TT.propEnd + 0.2));
           this.labels.push({ pos: fieldToWorld(WORLD.barrierX1, WORLD.barrierH * 0.35).setY(0.0), text: 'barrier', color: '#4C5868', size: 24, weight: 600, dx: 12, alpha: ia });
           this.labels.push({ pos: fieldToWorld(WORLD.bowlX, 0).setY(Y_TASK - 0.10), text: 'bowl', color: '#4C5868', size: 24, weight: 600, align: 'center', dy: 34, alpha: ia });
-          if (u > 2 && u < 12) {
-            const pa = fade(u, 2, 2.6, 10.5, 12);
+          if (u > TT.move[0] && u < TT.propEnd) {
+            const pa = fade(u, TT.move[0], TT.move[0] + 0.6, TT.propEnd - 1.5, TT.propEnd);
             this.straightTube.visible = true; this.straightTube.material.opacity = pa * 0.85;
-            this.labels.push({ pos: fieldToWorld(WORLD.bowlX - 0.04, WORLD.start.z), text: 'VLA proposal: straight to the bowl', color: '#2F5BB7', size: 24, weight: 600, dx: 14, dy: 8, alpha: pa });
+            this.labels.push({ pos: fieldToWorld(WORLD.bowlX - 0.04, WORLD.start.z), text: 'VLA proposal', color: '#2F5BB7', size: 28, weight: 600, dx: 14, dy: 8, alpha: pa });
           }
-          const flash = u > 6 ? fade(u, 6, 6.15, 7.2, 8.5) : 0;
+          const fl = TT.flash, flash = u > fl ? fade(u, fl, fl + 0.15, fl + 1.6, fl + 3) : 0;
           if (flash > 0) {
             const c = fieldToWorld(WORLD.barrierX0, p[1] - 0.01); c.y = Y_TASK - 0.09;
-            this.ring.visible = true; this.ring.position.copy(c); this.ring.rotation.set(Math.PI / 2, 0, 0); const sc = 1 + (u - 6) * 0.7; this.ring.scale.set(sc, sc, sc); this.ring.material.opacity = flash;
+            this.ring.visible = true; this.ring.position.copy(c); this.ring.rotation.set(Math.PI / 2, 0, 0); const sc = 1 + (u - fl) * 0.7; this.ring.scale.set(sc, sc, sc); this.ring.material.opacity = flash;
             this.labels.push({ pos: c.clone().add(new THREE.Vector3(-0.07, 0, 0.09)), text: 'collision', color: '#C43D32', size: 28, weight: 700, align: 'right', alpha: flash });
           }
-          if (u > 12 && u < 20.5) {
-            const al = fade(u, 12, 12.6, 19.6, 20.5), prog = sramp(u, 12.8, 15.2);
+          if (u > TT.wp[0] && u < TT.wp[1] + 0.5) {
+            const al = fade(u, TT.wp[0], TT.wp[0] + 0.6, TT.wp[1] - 0.6, TT.wp[1] + 0.5), prog = sramp(u, TT.wpDraw[0], TT.wpDraw[1]);
             this.waypointTube.visible = true; setTubeProgress(this.waypointTube, prog); this.waypointTube.material.opacity = al;
             this.waypointDots.forEach((d, k) => { d.visible = prog * 6 > k + 1; });
             this.anchors.wpMid = this.wpPts[11].clone(); this.anchors.wpLink = this.wpPts[17].clone();
           }
-          if (u > 20 && u < 28.5) {
-            const al = fade(u, 20, 20.6, 27.6, 28.5), prog = sramp(u, 20.6, 23.2);
-            this.fan.forEach(f => {
-              f.visible = true; setTubeProgress(f, prog); f.material.opacity = al * (f.userData.ok ? 0.9 : 0.55);
-              if (prog >= 1) this.labels.push({ pos: f.userData.end, text: f.userData.score, color: '#5B6676', size: 18, dx: 8, dy: -6, alpha: al });
-            });
+          if (u > TT.fan[0] && u < TT.fan[1] + 0.5) {
+            const al = fade(u, TT.fan[0], TT.fan[0] + 0.6, TT.fan[1] - 0.6, TT.fan[1] + 0.5), prog = sramp(u, TT.fanDraw[0], TT.fanDraw[1]);
+            this.fan.forEach(f => { f.visible = true; setTubeProgress(f, prog); f.material.opacity = al * (f.userData.ok ? 0.9 : 0.55); });
             this.anchors.fanMid = fieldToWorld(0.60, 0.31);
           }
-          if (u > 28) {
-            const al = ramp(u, 28, 28.8), from = fieldToWorld(p[0], p[1]); from.y -= 0.12;
+          if (u > TT.grad) {
+            const al = ramp(u, TT.grad, TT.grad + 0.8), from = fieldToWorld(p[0], p[1]); from.y -= 0.12;
             setArrow(this.arrows.grad, from, new THREE.Vector3(0.25, 0, 1), 0.22 * al); this.arrows.grad.userData.mat.opacity = 1;
             this.labels.push({ pos: from.clone().add(new THREE.Vector3(0.07, 0, 0.24 * al)), text: '−∇E', color: '#D4702A', size: 36, math: true, alpha: al });
           }
@@ -535,11 +533,11 @@
           if (this.chunkTube) { this.ov.remove(this.chunkTube); this.chunkTube.geometry.dispose(); }
           this.chunkTube = tubeFromPoints(P3, 0.005, COL.blue, 60); this.chunkTube.material.opacity = 0.35 + 0.65 * tau; this.ov.add(this.chunkTube);
           if (this.cleanTube) { this.ov.remove(this.cleanTube); this.cleanTube.geometry.dispose(); this.cleanTube = null; }
-          if (tau > 0.05 && tau < 0.98) { this.cleanTube = tubeFromPoints(C3, 0.0025, 0x1d3f86, 60); this.cleanTube.material.opacity = 0.45; this.ov.add(this.cleanTube); this.labels.push({ pos: C3[6].clone().add(new THREE.Vector3(0, 0, 0.05)), text: 'clean estimate Â', color: '#1D3F86', size: 20 }); }
+          if (tau > 0.05 && tau < 0.98) { this.cleanTube = tubeFromPoints(C3, 0.0025, 0x1d3f86, 60); this.cleanTube.material.opacity = 0.45; this.ov.add(this.cleanTube); this.labels.push({ pos: C3[6].clone().add(new THREE.Vector3(0, 0, 0.05)), text: 'clean estimate', color: '#1D3F86', size: 24, weight: 600 }); }
           if (inWin) {
             const strength = Math.sin((tau - 0.3) / 0.5 * Math.PI);
             for (let k = 2; k <= 7; k++) { const len = 0.14 * strength * (1 - Math.abs(k - 4.5) / 4); setArrow(this.arrows.guide[k], P3[k], new THREE.Vector3(0.25, 0, 1), len); this.arrows.guide[k].userData.mat.opacity = 1; }
-            this.labels.push({ pos: P3[4].clone().add(new THREE.Vector3(0, 0, 0.2)), text: '−λ · ∇E', color: '#D4702A', size: 28, math: true });
+            this.labels.push({ pos: P3[4].clone().add(new THREE.Vector3(0, 0, 0.2)), text: '−λ∇E', color: '#D4702A', size: 34, math: true });
           }
           // robot holds at the start pose, banana in hand
           this.setRobot(this.qStraight[0], 0.018, [WORLD.start.x, WORLD.start.z]);
@@ -549,35 +547,36 @@
         case 'stall': {
           this.blendCam(CAM_MAIN, CAM_SIDE, u / 2.5);
           const pr = core.F.pStar;
-          this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]); this.setOpacity(u > 3 ? lerp(1, GHOST, sramp(u, 3, 4.5)) : 1);
+          this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]); const TS = core.util.TL.stall; this.setOpacity(lerp(1, GHOST, sramp(u, TS.ghost[0], TS.ghost[1])));
           this.paintPlane('E', null, {}); this.plane.material.opacity = 0.92 * ramp(u, 0, 2.5);
           const parts = core.F.Eloc_parts(pr.x, pr.z), base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01;
-          const sc = 0.03; const a1 = sramp(u, 3.2, 5.0), a2 = sramp(u, 5.0, 6.8), a3 = sramp(u, 6.8, 8.2);
-          if (u > 3) {
+          const sc = 0.03; const a1 = sramp(u, TS.a1[0], TS.a1[1]), a2 = sramp(u, TS.a2[0], TS.a2[1]), a3 = sramp(u, TS.a3[0], TS.a3[1]);
+          if (u > TS.ghost[1]) {
             this.probeMarker.visible = true; this.probeMarker.position.copy(base);
             const att = new THREE.Vector3(-parts.attract[0], 0, -parts.attract[1]), rep = new THREE.Vector3(-parts.repel[0], 0, -parts.repel[1]);
-            if (a1 > 0) { setArrow(this.arrows.attract, base, att, att.length() * sc * a1); this.labels.push({ pos: base.clone().add(att.clone().normalize().multiplyScalar(att.length() * sc * a1 + 0.04)), text: 'attraction', color: '#2F5BB7', size: 22, weight: 600, alpha: a1 }); }
-            if (a2 > 0) { setArrow(this.arrows.repel, base, rep, rep.length() * sc * a2); this.labels.push({ pos: base.clone().add(rep.clone().normalize().multiplyScalar(rep.length() * sc * a2 + 0.05)), text: 'repulsion', color: '#C43D32', size: 22, weight: 600, alpha: a2, align: 'right' }); }
-            if (a3 > 0) { const net = att.clone().add(rep), nl = net.length() * sc * 3 * a3; setArrow(this.arrows.net, base, net, nl); this.labels.push({ pos: base.clone().add(net.clone().normalize().multiplyScalar(nl)), text: 'net: no upward component', color: '#1C2533', size: 24, weight: 700, dx: 16, dy: 26, alpha: a3 }); }
+            if (a1 > 0) { setArrow(this.arrows.attract, base, att, att.length() * sc * a1); this.labels.push({ pos: base.clone().add(att.clone().normalize().multiplyScalar(att.length() * sc * a1 + 0.04)), text: 'attract', color: '#2F5BB7', size: 28, weight: 600, alpha: a1 }); }
+            if (a2 > 0) { setArrow(this.arrows.repel, base, rep, rep.length() * sc * a2); this.labels.push({ pos: base.clone().add(rep.clone().normalize().multiplyScalar(rep.length() * sc * a2 + 0.05)), text: 'repel', color: '#C43D32', size: 28, weight: 600, alpha: a2, align: 'right' }); }
+            if (a3 > 0) { const net = att.clone().add(rep), nl = net.length() * sc * 3 * a3; setArrow(this.arrows.net, base, net, nl); this.labels.push({ pos: base.clone().add(net.clone().normalize().multiplyScalar(nl)), text: 'net', color: '#1C2533', size: 28, weight: 700, dx: 16, dy: 26, alpha: a3 }); }
           }
           break;
         }
         case 'geo': {
           const pr = core.F.pStar;
-          if (u < 16) {
+          const TG = core.util.TL.geo, PH = TG.phase;
+          if (u < PH[0]) {
             this.lookFrom(...CAM_SIDE);
             this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]); this.setOpacity(GHOST);
-            const cut = core.F.L0.tmax * sramp(u, 0.8, 6.5);
-            this.paintPlane('T', cut, { quiver: ramp(u, 8, 9) }); this.plane.material.opacity = 0.92;
-            if (u > 8.5) {
-              const gq = sramp(u, 8.5, 9.6), g = core.F.L0.gradAt(pr.x, pr.z), L = Math.hypot(g[0], g[1]) || 1;
+            const cut = core.F.L0.tmax * sramp(u, TG.cut[0], TG.cut[1]);
+            this.paintPlane('T', cut, { quiver: ramp(u, TG.quiver[0], TG.quiver[1]) }); this.plane.material.opacity = 0.92;
+            if (u > TG.grad[0]) {
+              const gq = sramp(u, TG.grad[0], TG.grad[1]), g = core.F.L0.gradAt(pr.x, pr.z), L = Math.hypot(g[0], g[1]) || 1;
               const base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01; this.probeMarker.visible = true; this.probeMarker.position.copy(base);
               setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, 0, -g[1] / L), 0.22 * gq); this.arrows.grad.userData.mat.opacity = 1;
-              this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, 0, -g[1] / L).multiplyScalar(0.22 * gq)), text: '−∇T: up and over', color: '#9E4F17', size: 28, weight: 700, dx: 18, dy: -6, alpha: gq });
+              this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, 0, -g[1] / L).multiplyScalar(0.22 * gq)), text: '−∇T', color: '#9E4F17', size: 36, weight: 700, dx: 18, dy: -6, alpha: gq });
             }
-          } else if (u < 34) {
-            // interventions, sequential: removed (16–22), top closed (22–28), taller (28–34)
-            const phase = u < 22 ? 0 : u < 28 ? 1 : 2, u0 = 16 + phase * 6, k = sramp(u, u0, u0 + 1.2);
+          } else if (u < TG.caveats) {
+            // interventions, sequential: removed, top closed, taller (TL.geo.phase)
+            const phase = u < PH[1] ? 0 : u < PH[2] ? 1 : 2, u0 = PH[phase], k = sramp(u, u0, u0 + 1.2);
             this.setOpacity(GHOST);
             if (phase === 0) {
               this.lookFrom(...CAM_SIDE); this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]);
@@ -597,7 +596,7 @@
               const fp = [0.30, 0.32]; const g = core.F.L2.gradAt(fp[0], fp[1]), L = Math.hypot(g[0], g[1]) || 1, gq = sramp(u, u0 + 3.6, u0 + 4.4);
               const base = topFieldToWorld(fp[0], fp[1]); base.z += 0.005; this.probeMarker.visible = true; this.probeMarker.position.copy(base);
               setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, -g[1] / L, 0), 0.22 * gq); this.arrows.grad.userData.mat.opacity = 1;
-              this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, -g[1] / L, 0).multiplyScalar(0.22 * gq)), text: '−∇T: toward the side opening', color: '#9E4F17', size: 28, weight: 700, dx: 18, dy: -6, alpha: gq });
+              this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, -g[1] / L, 0).multiplyScalar(0.22 * gq)), text: '−∇T', color: '#9E4F17', size: 36, weight: 700, dx: 18, dy: -6, alpha: gq });
             } else {
               this.lookFrom(...CAM_SIDE); this.setRobot(this.qProbe, 0.018, [pr.x, pr.z]);
               const hs = lerp(1, 0.42 / WORLD.barrierH, k); this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2; this.barrier.position.y = 0.225;
@@ -656,7 +655,7 @@
       const g = field.gradAt(pr.x, pr.z), L = Math.hypot(g[0], g[1]) || 1, base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01;
       this.probeMarker.visible = true; this.probeMarker.position.copy(base);
       setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, 0, -g[1] / L), 0.22 * gq); this.arrows.grad.userData.mat.opacity = 1;
-      this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, 0, -g[1] / L).multiplyScalar(0.22 * gq)), text: '−∇T: ' + text, color: '#9E4F17', size: 28, weight: 700, dx: 18, dy: -6, alpha: gq });
+      this.labels.push({ pos: base.clone().add(new THREE.Vector3(-g[0] / L, 0, -g[1] / L).multiplyScalar(0.22 * gq)), text: '−∇T', color: '#9E4F17', size: 36, weight: 700, dx: 18, dy: -6, alpha: gq });
     }
     // render; handles the split screen of the slip scene
     render() {
