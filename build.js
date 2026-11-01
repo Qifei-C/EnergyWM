@@ -3,6 +3,7 @@
 // from one template.  Usage: node build.js
 const fs = require('fs'), path = require('path');
 const R = p => fs.readFileSync(path.join(__dirname, p), 'utf8');
+require('./scripts/build_math.js'); // writes math.js (typeset formulas)
 
 const TITLE = 'Energy-Field Teachers';
 const core = require('./core.js');
@@ -86,7 +87,7 @@ const BODY = `
   <div id="strip" class="strip chrome" role="group" aria-label="Scenes"></div>
   <div class="meta chrome"><span id="sceneName"></span><span>Space play/pause · ←/→ 5 s · 1–9 scenes · F full screen</span></div>
   <ol id="chapters" class="chapters chrome" aria-label="Chapters"></ol>
-  <p class="note chrome">Kitchen is a schematic, RoboCasa-style procedural scene. Franka Panda meshes: MuJoCo Menagerie (Apache-2.0). three.js (MIT); Lora and Inter (SIL OFL).</p>
+  <p class="note chrome">Research plan — concept / hypothesis; no results are shown. Kitchen: schematic, RoboCasa-style procedural scene. Franka Panda meshes: MuJoCo Menagerie (Apache-2.0). Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0; re-oriented, texture resized). three.js (MIT); Lora and Inter (SIL OFL).</p>
 </main>`;
 
 const FONT_FACES = [
@@ -112,6 +113,7 @@ ${CSS}
 ${BODY}
 <script src="node_modules/three/build/three.min.js"></script>
 <script>window.MG_ASSET_BASE = 'assets/';</script>
+<script src="math.js"></script>
 <script src="core.js"></script>
 <script src="scene3d.js"></script>
 <script src="app.js"></script>
@@ -132,6 +134,7 @@ ${CSS}
 ${BODY}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>window.MG_ASSET_BASE = '';</script>
+${inline('math.js')}
 ${inline('core.js')}
 ${inline('scene3d.js')}
 ${inline('app.js')}

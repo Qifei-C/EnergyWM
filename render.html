@@ -70,7 +70,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
 <main class="wrap">
   <header class="chrome">
     <h1>Energy-Field Teachers for Small VLAs</h1>
-    <p>Motion-graphics explainer of a research plan (concept / hypothesis, 2026-11-01) · 7:04 · nothing shown is an experimental result</p>
+    <p>Motion-graphics explainer of a research plan (concept / hypothesis, 2026-11-01) · 9:52 · nothing shown is an experimental result</p>
   </header>
   <div id="stage" class="stage" role="img" aria-label="Animated explainer: robot kitchen scene with energy-field overlays">
     <canvas id="gl" width="1920" height="1080"></canvas>
@@ -83,8 +83,8 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       <svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5v15l13-7.5z"/></svg>
       <svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h4.5v16H6zM13.5 4H18v16h-4.5z"/></svg>
     </button>
-    <span id="time" class="time">0:00 / 7:04</span>
-    <input id="scrub" type="range" min="0" max="424" value="0" step="0.01" aria-label="Timeline">
+    <span id="time" class="time">0:00 / 9:52</span>
+    <input id="scrub" type="range" min="0" max="592" value="0" step="0.01" aria-label="Timeline">
     <select id="speed" aria-label="Playback speed">
       <option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option>
     </select>
@@ -95,10 +95,11 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
   <div id="strip" class="strip chrome" role="group" aria-label="Scenes"></div>
   <div class="meta chrome"><span id="sceneName"></span><span>Space play/pause · ←/→ 5 s · 1–9 scenes · F full screen</span></div>
   <ol id="chapters" class="chapters chrome" aria-label="Chapters"></ol>
-  <p class="note chrome">Kitchen is a schematic, RoboCasa-style procedural scene. Franka Panda meshes: MuJoCo Menagerie (Apache-2.0). three.js (MIT); Lora and Inter (SIL OFL).</p>
+  <p class="note chrome">Research plan — concept / hypothesis; no results are shown. Kitchen: schematic, RoboCasa-style procedural scene. Franka Panda meshes: MuJoCo Menagerie (Apache-2.0). Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0; re-oriented, texture resized). three.js (MIT); Lora and Inter (SIL OFL).</p>
 </main>
 <script src="node_modules/three/build/three.min.js"></script>
 <script>window.MG_ASSET_BASE = 'assets/';</script>
+<script src="math.js"></script>
 <script src="core.js"></script>
 <script src="scene3d.js"></script>
 <script src="app.js"></script>

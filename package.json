@@ -11,5 +11,8 @@
   "dependencies": {
     "@napi-rs/canvas": "0.1.65",
     "three": "0.128.0"
+  },
+  "devDependencies": {
+    "mathjax-full": "^3.2.2"
   }
 }

@@ -1,25 +1,34 @@
 # Storyboard — "Energy-Field Teachers for Small VLAs"
 
-Format: 16:9, 1920×1080, 30 fps, 7:04 (424 s). Academic-report look (paper background, ink type, Lora + Inter), English captions. Content is a research plan (Concept / Hypothesis, 2026-11-01); every number shown is labelled as prior work or as a hypothesis, never as a result.
+Format: 16:9, 1920×1080, 30 fps, 9:52 (592 s), English captions. Research **plan** (concept / hypothesis, 2026-11-01):
+nothing shown is a result; every number on screen is cited prior work with its source on screen.
 
-Text budget (user request: less text per frame, a longer film is fine)
-- One caption line at a time (≤ ~80 characters, 34 px), each held 5–10 s.
-- On screen only titles, formulas and short labels; no paragraphs or bullet prose. Dense scenes are split into beats that show one idea at a time.
-- Beat timings shared by the 3D layer and the overlay live in `core.util.TL`.
+**Thesis.** The advantage worth fighting for is not "better detours than classic methods". It is this: a small VLA that already has
+basic skills meets a new combination of conditions; a teacher (explicit geometry + predicted consequences) helps it get it
+right; the correction is learned; the teacher is gradually no longer needed. *First time: predict and reason. After that: a
+cheap, transferable skill.* The predictive-teacher → structured-energy-student step is a means, not the end.
 
-Visual grammar
-- Eyebrow top-left "0k · scene name", caption band at the bottom, thin progress line at the bottom edge.
-- Colours: VLA / flow = blue, teacher & energy gradient = orange, geodesic field T = teal, collision = red, success = green, banana = yellow, barrier = slate.
-- 0.5 s crossfades between scenes (3D and overlay both).
+**Look ("night lab").** Dark set with image-based lighting and fog; the counter is the lit stage; field slices glow.
+Overlay: no boxes behind captions, no capsule chips — lists are an accent bar + text; ✓/✗ marks for verdicts; glass cards
+only for formulas, facts and diagrams. Formulas are typeset by MathJax (TeX → SVG, `scripts/build_math.js`), never drawn
+with "_" or "^". One caption line at a time (≤ ~80 chars). Beat timings shared by both layers live in `core.util.TL`.
 
-| # | Time | Scene | Beats (what is on screen) | Captions (one line each) |
-|---|---|---|---|---|
-| 1 | 0:00–0:10 | Title | title, one-line subtitle, status line over a wide kitchen shot | — |
-| 2 | 0:10–0:52 | Task & two rules | straight move → collision · waypoint arc crossed out ("no waypoints") · candidate fan crossed out ("no sample-and-rank") · gradient arrow −∇E | task · naive VLA collides · rule 1 · rule 2 · best-of-N only as baseline · what remains |
-| 3 | 0:52–1:48 | Guidance | chunk denoising in 3D + τ bar (noise / guided / actions); from 0:14 a five-box pipeline (velocity → Â → K(Â) → E → v − λ∇E) | flow denoising · step counts · guided step · window 0.3–0.8 · normalize/limit/smooth · MPGD default · both students · equal-compute best-of-N |
-| 4 | 1:48–2:32 | Why local attraction fails | E slice; attract / repel / net arrows; inset "Energy vs. height"; prior-work cards one at a time (92% → 41%; 62%) | first try · forces cancel · no upward part · energy only rises · prior work on detours · safe but stuck |
-| 5 | 2:32–3:50 | Geodesic field T | T wavefront + S|∇T| = 1 card, −∇T up and over · three interventions (8 s each) with a 3-item list · three caveat cards · five stage chips | definition · inflated obstacles · no false minima · removed / top closed / taller · value field not path · progress term · still to test · stages = contact permissions · detour lives in T |
-| 6 | 3:50–4:46 | Teacher → student | teacher row (E_T, geometry, JEPA) · distill arrow · student row (encoder, analytic energy, R_ψ) · E_S = E_analytic + R_ψ | training only · geometry handles detour · JEPA adds grip/slip/contact · prove it on physics · distillation · encode once · geometry kept · R_ψ = 0 baseline |
-| 7 | 4:46–5:20 | Same path, different speed | split screen slow / fast, banana slips at the apex; two chips per side | same path · geometry same score · must tell apart · beat analytic baseline · input definition |
-| 8 | 5:20–6:20 | Experiments | A / B / C cards with three short items each · E0 checklist (four "to run" boxes) | fail early · A · B · fair baseline · C · E0 · two caption lines on the tests |
-| 9 | 6:20–7:04 | Retirement | three level toggles · illustrative chart (labelled hypothesis) · end card | distill · retire stepwise · level 2 not autonomy · hypothesis · to be tested |
+**Assets.** Franka Panda (MuJoCo Menagerie, Apache-2.0); banana = YCB Object and Model Set scan, object 011 (CC BY 4.0,
+re-oriented, texture resized — `scripts/fetch_banana.sh`); kitchen is procedural, RoboCasa-style, schematic.
+
+| # | Time | Chapter | On screen |
+|---|---|---|---|
+| 01 | 0:00 | Title | title, one-line promise, status line over a wide kitchen shot with faint T contours |
+| 02 | 0:10 | Skills, not the combination | open layout: grasp · lift · move · place; then barrier + low ceiling + grip near one end + "no fast swing" → the familiar straight move collides; "what is missing: which skill, how much, what it causes next"; VLS (arXiv 2602.03973) |
+| 03 | 1:06 | What today's models cannot do | split screen: single VLA acts at once into the barrier ∣ world-model planner imagines futures (ghost bananas), scores by distance to goal, stalls; cited facts: π0.5 63 ms, WAMs 4.8–83× slower (arXiv 2603.22078 Tab. 5), V-JEPA 2-AC 16 s/action (arXiv 2506.09985), 92% → 41% (arXiv 2609.39235); then five tool families (planning, MPC/MBRL, fine-tuning, inference-time guidance, amortized guidance): good at / what we want to add; Guided Policy Search lineage |
+| 04 | 2:22 | The bet | "First time: predict and reason. After that: a cheap, transferable skill." chain: skills → predictive correction → fast adaptation → acting alone; marked hypothesis |
+| 05 | 2:58 | Guidance by energy gradient | the VLA's own chunk denoising; τ window; pipeline vθ → Â → K(Â) → E(K(Â)) → vθ − λ∇E; no path / no ranking = interface choice; planners and best-of-N are baselines |
+| 06 | 3:48 | The geometry part of the teacher | local attract+repel field cancels (62% stall, least-restrictive filter baseline, arXiv 2511.18606); geodesic field T, −∇T up and over; "one ingredient, not the goal" |
+| 07 | 4:28 | A direction, not a verdict | verdict vs. direction (keep progress · add clearance · ease acceleration); first-order expansion; DAgger; equal-budget test |
+| 08 | 5:08 | Same path, different physics | split slow ∣ fast; geometry gives the same score; the teacher must tell them apart and beat an analytic grip-stability baseline |
+| 09 | 5:42 | Change the task, not the weights | E(A; g, c) = E_geo(A; c) + ℓ(F_θ(h, A); g, c); barrier removed / top closed / taller / new goal (blue bowl) with a forbidden cup — field recomputed live; "where did it fail?"; AGF-style baseline |
+| 10 | 6:38 | From teacher to student | teacher (geometry, JEPA predictor, teacher energy) → distill → light student (scene encoder, analytic energy, consequence module); "a means, not the end" |
+| 11 | 7:22 | Guidance as an investment | states A (full teacher) → B (light student, geometry still guides) → C (VLA alone, T off); to measure: teacher calls ↓ interventions ↓ success ↑ |
+| 12 | 8:06 | Four levels of success | new combination with help → one teacher, unseen combinations → VLA alone from new starts (first paper's endpoint) → each next task needs less help; information limit |
+| 13 | 8:50 | What we do not claim | no path output · no best-of-N · using JEPA · the geometric field |
+| 14 | 9:22 | The proposition | the falsifiable proposition, its three parts, closing line, status, sources and credits |

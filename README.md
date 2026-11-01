@@ -1,6 +1,6 @@
 # Energy-Field Teachers for Small VLAs — MG 动画
 
-研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 7:04、学术汇报风、英文字幕。
+研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 9:52、深色“night lab”主题、英文字幕。
 内容是研究计划（Concept / Hypothesis，2026-11-01）；片中所有数字都标为假设，不是实验结果。
 
 ## 目标形态
@@ -31,17 +31,16 @@ python3 -m http.server 8787      # 之后在浏览器打开 render.html（待加
 离线 MP4 渲染依赖：Python `playwright`（已安装时可直接驱动系统 Chrome：`/usr/bin/google-chrome`）、`ffmpeg`。
 
 ## 进度
-- [x] `core.js` 改为叠加层 + 共享工具（`core.util`、`core.F`、`paintFieldTexture`、3D 锚定标注、新几何 `WORLD`）
-- [x] `app.js`：三层画布（3D / 上一场景末帧 / 2D 叠加）、0.5 s 交叉淡化、播放器（播放/暂停、拖动、场景条与章节列表、倍速、键盘、全屏、400 px 可用、light/dark）、`window.__render(t)` + `window.__ready`
-- [x] `build.js`：从同一模板生成 `render.html`（本地依赖）与 `index.html`（cdnjs + Google Fonts，JS 内联）
-- [x] `scene3d.js` 联调：IK 残差 < 0.1 mm，机械臂底座移到挡板左侧（x = 0.02）避免遮挡，sRGB 颜色修正，场切片平面方向/纹理缓存，顶视图裁剪到台面，分屏场景
-- [x] `scripts/keyframes.js`：Node Playwright 渲染关键帧到 `preview/`
-- [ ] `render.py`/`render.js`：按场景分段编码 MP4、concat、校验时长（实测截图约 1.1 s/帧，需要并行）
-- [ ] `index.html` 发布为 Artifact；MP4 交付
+- [x] 叠加层 + 3D 世界 + 播放器（`core.js` / `scene3d.js` / `app.js`），`build.js` 生成 `render.html` 与 `index.html`
+- [x] 主题对齐：14 章（见 `storyboard.md`）—— 小 VLA 已有技能、遇到新组合时借助教师做对、吸收纠正、逐步撤掉教师；附 SOTA VLA / WAM 的能力缺口（均附来源）、五类方法对比、Guided Policy Search 渊源、“不作为卖点”的部分与可证伪命题
+- [x] 无伪数据：删除示意曲线图；屏幕上的数字全部来自引用文献并标注出处
+- [x] 深色主题、MathJax 排版公式（不出现 `_` / `^`）、无胶囊气泡、YCB 扫描香蕉
+- [ ] MP4 渲染（约 17,760 帧；截图约 1–6 s/帧，需要并行）
+- [ ] 发布 `index.html` 为 Artifact（附 `assets/panda.glb`、`assets/panda_kin.json`、`assets/banana.glb`）
 
 ## 本地预览
 ```bash
-npm install && node build.js
+npm install && node build.js      # build.js 也会运行 scripts/build_math.js
 python3 -m http.server 8787        # 浏览器打开 http://localhost:8787/render.html
 node scripts/keyframes.js 6 17 25 36 47 80 95 120 128 141 157 185 212 243 275   # → preview/kf_*.jpg
 ```
@@ -49,4 +48,6 @@ node scripts/keyframes.js 6 17 25 36 47 80 95 120 128 141 157 185 212 243 275   
 ## 素材与许可
 - Franka Panda 网格与 MJCF：[google-deepmind/mujoco_menagerie](https://github.com/google-deepmind/mujoco_menagerie)（Apache-2.0）。
 - 厨房场景：按 RoboCasa 的风格程序化搭建（RoboCasa 的真实资产不在其 GitHub 仓库内，需另行下载，本片不使用）。
+- 香蕉：YCB Object and Model Set 扫描模型（object 011，CC BY 4.0；已重新定向、贴图缩小），`scripts/fetch_banana.sh` 可重新生成。
+- 公式排版：MathJax（Apache-2.0），构建时生成 `math.js`。
 - three.js（MIT）；Lora、Inter（SIL OFL 1.1）。

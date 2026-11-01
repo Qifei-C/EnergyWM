@@ -45,6 +45,13 @@
     const faces = ['400 40px Lora', '600 40px Lora', 'italic 400 40px Lora', 'italic 600 40px Lora',
       '400 40px Inter', '500 40px Inter', '600 40px Inter', '700 40px Inter'];
     try { await Promise.all(faces.map(f => document.fonts.load(f, 'Aa∇τ'))); } catch (e) { /* fall back to stacks */ }
+    if (window.MGMath) { // typeset formulas (math.js) → decoded images for the overlay
+      const m = {};
+      await Promise.all(Object.entries(window.MGMath).map(async ([k, v]) => {
+        const img = new Image(); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(v.svg); await img.decode(); m[k] = { img, vb: v.vb };
+      }));
+      core.setMath(m);
+    }
     world = await MGScene.createWorld(gl, assetBase);
     env = core.createEnv((w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h }));
     window.__world = world;
