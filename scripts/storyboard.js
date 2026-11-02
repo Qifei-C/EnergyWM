@@ -10,7 +10,7 @@ const tc = s => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r
 const D = {
   title: {
     act: ['广角厨房镜头缓慢推移；机械臂轻微待机摆动；切片平面上淡入青色 T 等值线。'],
-    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.', '作者：Qifei C.（CocoMatrix）']
+    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.', '作者：Qifei C.（University of Pennsylvania, GRASP Lab）']
   },
   gap: {
     act: ['0–16 s 无挡板的开放布局：从台面抓起香蕉、抬起、低弧线搬运、放进碗、松开。',
@@ -142,7 +142,7 @@ const D = {
     act: ['纯图示（3D 在背板后）。'],
     txt: ['THE PROPOSITION — STATED SO THAT IT CAN FAIL',
       'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations and new environments with fewer new demonstrations or interactions — and keep that ability once guidance is removed?',
-      '1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher', '20 s：Not a smarter planner carried forever — a teacher the robot outgrows.', '25 s：作者 Qifei C. · CocoMatrix、引用列表与素材致谢']
+      '1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher', '20 s：Not a smarter planner carried forever — a teacher the robot outgrows.', '25 s：作者 Qifei C. · University of Pennsylvania, GRASP Lab、引用列表与素材致谢']
   },
   appendix: {
     act: ['纯图示（3D 在背板后）。0–14 s 第 1 页，14–30 s 第 2 页。'],
