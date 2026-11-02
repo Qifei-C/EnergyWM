@@ -19,7 +19,7 @@ const tc = s => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r
 const D = {
   title: {
     act: ['广角厨房镜头缓慢推移；机械臂轻微待机摆动；切片平面上淡入青色 T 等值线。'],
-    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.']
+    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.', '作者：Qifei C.（CocoMatrix）']
   },
   gap: {
     act: ['0–16 s 无挡板的开放布局：从台面抓起香蕉、抬起、低弧线搬运、放进碗、松开。',
@@ -87,7 +87,8 @@ const D = {
     act: ['0–8 s：正面 T 切片 + −∇T。',
       '每种布局（8 s）：场重算 → 同一个蓝色 VLA 原提案 → 不同的橙色修正动作块 → 机械臂执行修正动作块再收回。',
       '8–16 s 去掉挡板（直拉，无多余抬高）；16–24 s 封顶，俯视顶视图，标出 side opening，修正绕向侧面开口；24–32 s 加高挡板（更大净空）。',
-      '32–44 s 新目标蓝碗 + 杯子禁止接触：场实时重算，修正越过挡板、从杯子上方送进蓝碗。'],
+      '32–44 s 新目标：旧碗收走，蓝碗出现在机械臂可俯抓的范围内，杯子放在挡板和蓝碗之间、禁止接触；场实时重算，修正越过挡板、从杯子上方送进蓝碗。',
+      '香蕉始终按夹爪的实际位姿（正向运动学）跟随，不会与夹爪错位。'],
     txt: ['副标题：Separate how the world changes from what we want this time；图例：VLA proposal · corrected chunk — executed',
       '公式卡（排版）：E(A; g, c) = E_geo(A; c) + ℓ(F_θ(h, A); g, c)；F_θ what happens — reused；g, c what we want — swapped',
       '列表：1 Barrier removed · 2 Top closed · 3 Taller barrier · 4 New goal, cup forbidden', '3D 标签：−∇T · VLA proposal · corrected chunk · side opening · new goal · do not touch',
@@ -124,15 +125,18 @@ const D = {
       '52 s：LIMIT — The student must observe what decides the right action.']
   },
   notclaims: {
-    act: ['纯图示（3D 在背板后）。'],
-    txt: ['标题：What we do not claim as contributions（每卡标签 NOT A SELLING POINT）',
-      'No path output — an interface choice — planners stay as baselines；No best-of-N — compared on success, cost and adaptation speed；Using JEPA — the question is how well it teaches；The geometric field — if geometry alone suffices, we accept that']
+    act: ['纯图示（3D 在背板后）。四行，每 7 s 一行：左边先出（我们基于什么），箭头，右边再出（由此得到什么）。'],
+    txt: ['标题：What we build on — and what it gives us；列头 WE BUILD ON / WHAT WE GAIN',
+      '1 Geometric fields — SDF and a numerically computed progress field T → A progress signal for any layout — recomputed when the scene changes — no retraining',
+      '2 An action-conditioned world model — trained readouts: grip, slip, contact → Consequences geometry cannot see — same path, different speed — told apart',
+      '3 The VLA’s own skills — its proposal and its denoising steps → Corrections close to what it already does — a gradient on its own chunk, not a new path',
+      '4 Execution-verified corrections — replayed together with old skills → A VLA that needs the teacher less — checked with all guidance off, from held-out starts']
   },
   end: {
     act: ['纯图示（3D 在背板后）。'],
     txt: ['THE PROPOSITION — STATED SO THAT IT CAN FAIL',
       'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations with fewer new demonstrations or interactions — and keep that ability once guidance is removed?',
-      '1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher', '20 s：Not a smarter planner carried forever — a teacher the robot outgrows.', '25 s：引用列表与素材致谢']
+      '1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher', '20 s：Not a smarter planner carried forever — a teacher the robot outgrows.', '25 s：作者 Qifei C. · CocoMatrix、引用列表与素材致谢']
   },
   appendix: {
     act: ['纯图示（3D 在背板后）。'],
