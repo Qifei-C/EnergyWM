@@ -29,6 +29,17 @@ node scripts/render_mp4.js --workers 2 --name energywm_720p --page 'aa=0&scale=0
 ```
 依赖 Node `playwright`（Chromium + SwiftShader）与 `ffmpeg`；每章一个文件写到 `out/`，可断点续跑，最后 `-c copy` 拼接。
 
+配音（Kokoro-82M，本地运行，Apache-2.0）：逐句朗读字幕，放在字幕出现后 0.15 s，必要时最多加速到 1.2× 以免压到下一句；混成一条音轨、响度归一到 −16 LUFS，再无损合进视频（`out/energywm_1080p_vo.mp4`）。符号与缩写的读法在 `scripts/voiceover.js` 的 `SPOKEN` 表里；改字幕后重跑只合成改动的句子。
+```bash
+node scripts/voiceover.js --check            # 只打印朗读稿
+node scripts/voiceover.js --voice af_heart   # 合成 + 混音 + 合并；逐句时长见 out/vo/<voice>/report.tsv
+```
+
+有 GPU 的机器（如 Apple Silicon）用系统 Chrome + 硬件 WebGL，完整 1080p 画质约 20–60 ms/帧：
+```bash
+node scripts/render_mp4.js --channel chrome --gpu --workers 3 --name energywm_1080p --quality 0.95 --crf 18 --preset medium --page 'aa=1&scale=1&out=1080&shadow=2048'
+```
+
 ## 进度
 - [x] 叠加层 + 3D 世界 + 播放器（`core.js` / `scene3d.js` / `app.js`），`build.js` 生成 `render.html` 与 `index.html`
 - [x] 主题对齐：17 章（见 `storyboard.md`）—— 小 VLA 已有技能、遇到新组合时借助教师做对、执行验证后更新 VLA（能量学生 / 策略学生）、教师关闭时的前后对照、逐步撤掉教师；第 03 章讲额外推理的用处与代价（直接策略 vs 采样式世界模型规划器、WAM 的不同设计、五类已有方法、Guided Policy Search 渊源）；从仿真到真实厨房（几何层、文献证据、待测的适应速度）；Level 3 测试设计；“我们基于什么、由此得到什么”；附录列出文献数字及其口径

@@ -3,16 +3,7 @@
 const fs = require('fs'), path = require('path');
 const ROOT = path.join(__dirname, '..');
 const core = require(path.join(ROOT, 'core.js'));
-const src = fs.readFileSync(path.join(ROOT, 'core.js'), 'utf8');
-
-// captions per scene function, parsed from the source
-const drawMap = {}; for (const m of src.matchAll(/(\w+): (scene\w+)/g)) drawMap[m[1]] = m[2];
-function captionsOf(fn) {
-  const a = src.indexOf(`function ${fn}(`); if (a < 0) return [];
-  const b = src.indexOf('\n  function ', a + 10), body = src.slice(a, b < 0 ? undefined : b);
-  const c = body.indexOf('captions(ctx, u, ['); if (c < 0) return [];
-  return [...body.slice(c).matchAll(/\[([\d.]+), ([\d.]+), '((?:[^'\\]|\\.)*)'\]/g)].map(m => [+m[1], +m[2], m[3]]);
-}
+const { drawMap, captionsOf } = require('./captions.js'); // captions per scene function, parsed from core.js
 const tc = s => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r.toFixed(1).padStart(4, '0')}`; };
 
 // hand-written: 3D action (中文) and on-screen text (verbatim). Keep in sync with core.js / scene3d.js.

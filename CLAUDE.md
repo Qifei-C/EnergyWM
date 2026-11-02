@@ -25,5 +25,7 @@ charts are not allowed; illustrative animations are labelled where they depict a
 ## Rendering the MP4
 Headless Chromium (SwiftShader WebGL) through Playwright (`scripts/keyframes.js` uses Node Playwright): serve the repo (`python3 -m http.server 8787`), open `render.html`, step `window.__render(t)` at 30 fps, screenshot JPEG q92 → ffmpeg, one file per scene, then concat with `-c copy`. Write temp names and rename on success.
 
+Voiceover: `node scripts/voiceover.js` (Kokoro-82M via kokoro-js, local) reads the captions (parsed by `scripts/captions.js`), mixes and muxes them into the MP4. Symbols and abbreviations need a spoken form in its `SPOKEN` table (it fails on any non-ASCII left over); write acronyms in caps (VLA), never hyphenated.
+
 ## Assets & licenses
 Panda meshes/MJCF: mujoco_menagerie (Apache-2.0); regenerate with `scripts/fetch_panda.sh`. Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, credit + note of changes required); regenerate with `scripts/fetch_banana.sh`. Fonts: SIL OFL. three.js: MIT. The kitchen is procedural; real RoboCasa assets are not included.
