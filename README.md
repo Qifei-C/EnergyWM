@@ -33,6 +33,7 @@ node scripts/render_mp4.js --workers 2 --name energywm_720p --page 'aa=0&scale=0
 ```bash
 node scripts/voiceover.js --check            # 只打印朗读稿
 node scripts/voiceover.js --voice af_heart   # 合成 + 混音 + 合并；逐句时长见 out/vo/<voice>/report.tsv
+node scripts/voiceover.js --engine openai    # 改用 OpenAI gpt-realtime-2.1-mini（音色 marin，需要 OPENAI_API_KEY）→ out/energywm_1080p_vo_<model>_<voice>.mp4
 ```
 
 有 GPU 的机器（如 Apple Silicon）用系统 Chrome + 硬件 WebGL，完整 1080p 画质约 20–60 ms/帧：

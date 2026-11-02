@@ -18,7 +18,7 @@
 
 - Energy-Field Teachers / for Small VLAs
 - Help a small VLA get it right the first time — / then let it learn to do without the teacher.
-- 作者：Qifei C.（CocoMatrix）
+- 作者：Qifei C.（University of Pennsylvania, GRASP Lab）
 
 **字幕**：无
 
@@ -437,7 +437,7 @@
 - For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations and new environments with fewer new demonstrations or interactions — and keep that ability once guidance is removed?
 - 1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher
 - 20 s：Not a smarter planner carried forever — a teacher the robot outgrows.
-- 25 s：作者 Qifei C. · CocoMatrix、引用列表与素材致谢
+- 25 s：作者 Qifei C. · University of Pennsylvania, GRASP Lab、引用列表与素材致谢
 
 **字幕**
 
