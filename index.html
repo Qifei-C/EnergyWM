@@ -2177,14 +2177,13 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       const w = ((u - t0) % period + period) % period; if (u < t0) return this.arcAt(0);
       if (w < period * 0.58) return this.arcAt(sramp(w, 0, period * 0.58));
       if (w < period * 0.76) return this.arcAt(1);
-      const r = sramp(w, period * 0.76, period), e = this.arcAt(1);
-      return { q: this.qMix(e.q, this.qStraight[0], r), p: [lerp(e.p[0], WORLD.start.x, r), lerp(e.p[1], WORLD.start.z, r)] };
+      return this.arcAt(1 - sramp(w, period * 0.76, period)); // rewind along the arc: a joint-space blend would cut through the barrier
     }
-    // follow a stream, then retract to qBack between [t0,t1] / [t1, t2]
+    // follow a stream, then retract to qBack between [t0,t1] / [t1, t2] by retracing it (clear of the obstacles it avoided)
     followAndBack(st, u, t0, t1, t2, qBack, pBack) {
       if (u < t1) { const a = this.streamAt(st, sramp(u, t0, t1)); a.mv = ramp(u, t0, t0 + 0.4); return a; }
-      const e = this.streamAt(st, 1), r = sramp(u, t1 + 0.1, t2);
-      return { q: this.qMix(e.q, qBack, r), p: [lerp(e.p[0], pBack[0], r), lerp(e.p[1], pBack[1], r)], world: e.world && pBack.world ? e.world.clone().lerp(pBack.world, r) : null, mv: 1 - r };
+      const r = sramp(u, t1 + 0.1, t2), e = this.streamAt(st, 1 - r), s = sramp(r, 0.7, 1); // last stretch lands exactly on qBack
+      return { q: this.qMix(e.q, qBack, s), p: [lerp(e.p[0], pBack[0], s), lerp(e.p[1], pBack[1], s)], world: e.world && pBack.world ? e.world.clone().lerp(pBack.world, s) : null, mv: 1 - r };
     }
     sampleQ(traj, prog) {
       const n = traj.length - 1, f = clamp(prog, 0, 1) * n, i = Math.min(Math.floor(f), n - 1), fr = f - i;
@@ -2237,7 +2236,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
       this.chunkDots.forEach(d => d.visible = false); if (this.chunkTube) this.chunkTube.visible = false; if (this.cleanTube) this.cleanTube.visible = false; if (this.propTube) this.propTube.visible = false;
       this.hideCem();
       this.ring.visible = false; this.halo.visible = false; this.plane.material.opacity = 0; this.topPlane.material.opacity = 0;
-      this.roof.visible = false; this.ceiling.visible = false; this.bananaB.visible = false; this.bowl2.visible = false; this.cup.visible = false;
+      this.roof.visible = false; this.roof.material.opacity = 0.3; this.roof.position.z = COUNTER_Z + WORLD.barrierH + 0.015; this.ceiling.visible = false; this.bananaB.visible = false; this.bowl2.visible = false; this.cup.visible = false;
       this.bowl.material.opacity = 1; this.bowl.visible = true; this.bowl.scale.setScalar(1);
       this.barrier.visible = true; this.barrier.scale.set(1, 1, 1); this.barrier.position.set((WORLD.barrierX0 + WORLD.barrierX1) / 2 + X_OFF, 0.225, COUNTER_Z + WORLD.barrierH / 2);
       this.setOpacity(1); this.split = false; this.halves = null;
@@ -2310,20 +2309,21 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
           if (u < G.combo) {
             // open layout: the skills the VLA already has
             this.barrier.visible = false;
-            const keys = [[1.5, 0], [3, 11], [3.4, 11], [4.8, 21], [10, 50], [12, 60], [G.combo, 60]];
+            // after placing: rise out of the bowl and carry back along the same arc, so the next beat starts where the arm is
+            const keys = [[1.5, 0], [3, 11], [3.4, 11], [4.8, 21], [10, 50], [12, 60], [12.7, 60], [13.4, 50], [15.6, 20], [G.combo, 20]];
             let idx = 0; for (let k = 0; k < keys.length - 1; k++) { const [a, ia] = keys[k], [b, ib] = keys[k + 1]; if (u >= a && u <= b) idx = lerp(ia, ib, easeIO((u - a) / (b - a || 1))); else if (u > b) idx = ib; }
             const n = this.trajOpen.length - 1, prog = idx / n;
-            const q = this.sampleQ(this.qOpen, prog), p = this.sampleP(this.trajOpen, prog);
+            const q = this.qMix(this.sampleQ(this.qOpen, prog), this.qStraight[0], sramp(u, 15.0, 15.6)), p = this.sampleP(this.trajOpen, prog);
             const fingers = u < 3 ? 0.04 : u < 3.4 ? lerp(0.04, 0.018, (u - 3) / 0.4) : u < 12 ? 0.018 : u < 12.5 ? lerp(0.018, 0.04, (u - 12) / 0.5) : 0.04;
             const held = u >= 3.2 && u < 12.2;
             this.setRobot(q, fingers, held ? p : null);
-            if (!held) { this.banana.visible = u < G.combo - 0.6; this.banana.position.copy(fieldToWorld(u < 3.2 ? WORLD.start.x : WORLD.bowlX, u < 3.2 ? BANANA_HALF_H + 0.002 : 0.066)); this.banana.rotation.set(0, 0, 0); }
+            if (!held) { this.banana.visible = u < G.combo - 0.6; for (const mm of this.banana.userData.mats) mm.opacity = 1 - ramp(u, G.combo - 1.4, G.combo - 0.6); this.banana.position.copy(fieldToWorld(u < 3.2 ? WORLD.start.x : WORLD.bowlX, u < 3.2 ? BANANA_HALF_H + 0.002 : 0.066)); this.banana.rotation.set(0, 0, 0); }
           } else {
             // the new combination: barrier rises, a low ceiling, grip near one end; then the familiar straight move fails
             const contact = core.util.contactPoint(), off = 0.055, pEnd = (contact.x - off - WORLD.start.x) / (contact.x - WORLD.start.x);
             const m = sramp(u, G.fail[0], G.fail[1]) * pEnd;
             const q = this.sampleQ(this.qStraight, m), p = this.sampleP(this.trajStraight, m);
-            this.setRobot(q, 0.018, p, { dx: off });
+            this.setRobot(q, lerp(0.04, 0.018, sramp(u, G.combo, G.combo + 0.5)), p, { dx: off }); // fingers close on the banana as it appears
             for (const mm of this.banana.userData.mats) mm.opacity = ramp(u, G.combo, G.combo + 0.6);
             const rise = sramp(u, G.combo + 0.3, G.combo + 1.8); this.barrier.scale.set(1, 1, Math.max(rise, 0.01)); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * rise / 2;
             const lift = sramp(u, G.lift, G.lift + 2.5);
@@ -2392,8 +2392,8 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
           }
           // after each denoising pass the arm executes the finished chunk, then resets for the next pass
           const uu = u % 12; let ex = { q: this.qStraight[0], p: start };
-          if (uu >= 8.6 && uu < 11.3) ex = this.arcAt(sramp(uu, 8.6, 11.0));
-          else if (uu >= 11.3) { const e = this.arcAt(1), r = sramp(uu, 11.3, 12); ex = { q: this.qMix(e.q, this.qStraight[0], r), p: [lerp(e.p[0], start[0], r), lerp(e.p[1], start[1], r)] }; }
+          if (uu >= 8.6 && uu < 11.1) ex = this.arcAt(sramp(uu, 8.6, 11.0));
+          else if (uu >= 11.1) ex = this.arcAt(1 - sramp(uu, 11.1, 12)); // rewind along the arc, clear of the barrier
           this.setRobot(ex.q, 0.018, ex.p);
           break;
         }
@@ -2448,10 +2448,13 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
         case 'slip': {
           const S = core.util.SLIP;
           splitCam(); this.split = true; this.arcTube.visible = true; this.arcTube.material.opacity = 0.55 * ramp(u, 0.3, 1.2);
+          const loop = u < S.t0 ? 0 : Math.floor((u - S.t0) / S.period);
           this.halves = S.dur.map((d, pi) => {
             let sIn = ((u - S.t0) % S.period + S.period) % S.period; if (u < S.t0) sIn = 0;
-            const prog = clamp(sIn / d, 0, 1), slipped = pi === 1 && sIn > d * 0.5 && sIn < S.period - 0.1;
-            const st = { q: this.sampleQ(this.qArc, prog), p: this.sampleP(this.trajArc, prog), dx: 0, pitch: 0, drop: null };
+            const prog = clamp(sIn / d, 0, 1), slipped = pi === 1 && sIn > d * 0.5;
+            // after each pass the arm retraces the arc back to the start (clear of the barrier) before the next loop
+            const ret = sramp(sIn, S.period - 2.2, S.period - 0.2), back = prog * (1 - ret);
+            const st = { q: this.sampleQ(this.qArc, back), p: this.sampleP(this.trajArc, back), dx: 0, pitch: 0, drop: null };
             if (pi === 1 && !slipped) { const lag = clamp((1 / d) * 0.4 * Math.sin(Math.PI * prog), 0, 0.08); st.dx = -lag; st.pitch = lag * 4; }
             if (slipped) {
               const tf = sIn - d * 0.5, apex = this.sampleP(this.trajArc, 0.5), g = 3.0, rest = BANANA_HALF_H + 0.002;
@@ -2461,7 +2464,12 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
               const px = proj2(st.drop.pos.clone().add(new THREE.Vector3(0.05, 0, 0.06)), 1);
               if (px) this.label(null, 'slip', LC.red, { px, size: 30, weight: 700, alpha: fade(sIn, d * 0.5, d * 0.5 + 0.3, S.period - 1, S.period - 0.2) });
             }
-            return { apply: () => { this.setRobot(st.q, st.drop ? 0.04 : 0.018, st.drop ? null : st.p, { dx: st.dx, pitch: st.pitch }); this.bananaB.visible = !!st.drop; if (st.drop) { this.bananaB.position.copy(st.drop.pos); this.bananaB.rotation.set(0, st.drop.rot, 0); } } };
+            return { apply: () => {
+              this.setRobot(st.q, st.drop ? lerp(0.04, 0.018, ret) : 0.018, st.drop ? null : st.p, { dx: st.dx, pitch: st.pitch });
+              for (const mm of this.banana.userData.mats) mm.opacity = pi === 1 && loop > 0 ? ramp(sIn, 0, 0.5) : 1; // fast half: a fresh banana each loop
+              this.bananaB.visible = !!st.drop;
+              if (st.drop) { this.bananaB.position.copy(st.drop.pos); this.bananaB.rotation.set(0, st.drop.rot, 0); for (const mm of this.bananaB.userData.mats) mm.opacity = 1 - ramp(sIn, S.period - 1.0, S.period - 0.3); }
+            } };
           });
           break;
         }
@@ -2477,6 +2485,9 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
             const fb = (st, qB, pB) => this.followAndBack(st, u, u0 + 4.9, u0 + 7.1, u0 + 7.9, qB, pB);
             const pc = (st, goal, from, top) => this.proposalAndCorrection(from || probe, goal, st, u, u0 + 3.9, u0 + 4.4, top);
             let mvI = 0;
+            // each phase starts where the previous one retracted to (phase 0 → probe, phase 1 → start), blended in with the layout change
+            const qPrev = phase === 1 ? this.qProbe : phase === 2 ? this.qStraight[0] : null, qIn = q => qPrev ? this.qMix(qPrev, q, k) : q;
+            const wy1 = WORLD.top.wallY1 - 0.10; // wall depth of the top-closed layout
             if (phase === 0) {
               this.lookFrom(...CAM_SIDE); { const a = fb(this.streams.L1, this.qProbe, probe); this.setRobot(a.q, 0.018, a.p); mvI = a.mv; }
               pc(this.streams.L1, [WORLD.bowlX - 0.04, 0.10]);
@@ -2485,20 +2496,23 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
               this.gradAt(core.F.L1, probe, u, u0 + 3.6);
             } else if (phase === 1) {
               this.blendCam(CAM_SIDE, CAM_TOP, k);
-              if (this.streams.L2.ok) { const pB = start.slice(); pB.world = fieldToWorld(start[0], start[1]); const a = fb(this.streams.L2, this.qStraight[0], pB); this.setRobot(a.q, 0.018, start, { world: a.world || pB.world }); mvI = a.mv; }
-              else this.setRobot(this.qStraight[0], 0.018, start);
+              if (this.streams.L2.ok) { const pB = start.slice(); pB.world = fieldToWorld(start[0], start[1]); const a = fb(this.streams.L2, this.qStraight[0], pB); this.setRobot(qIn(a.q), 0.018, start, { world: a.world || pB.world }); mvI = a.mv; }
+              else this.setRobot(qIn(this.qStraight[0]), 0.018, start);
               pc(this.streams.L2, [0.80, 0.32], [0.30, 0.32], true);
               this.label(topFieldToWorld(0.40, 0.60), 'side opening', LC.tealDeep, { size: 24, weight: 700, align: 'right', alpha: ramp(u, u0 + 1.2, u0 + 2) });
-              const wy1 = WORLD.top.wallY1 - 0.10; this.barrier.scale.set(1, wy1 / 0.45, 1); this.barrier.position.y = wy1 / 2;
-              this.roof.visible = true; this.roof.scale.set(1, wy1 / 0.50, 1); this.roof.position.y = wy1 / 2;
+              // the barrier (removed in phase 0) rises again, carrying the roof
+              this.barrier.scale.set(1, wy1 / 0.45, Math.max(k, 0.01)); this.barrier.position.y = wy1 / 2; this.barrier.position.z = COUNTER_Z + WORLD.barrierH * k / 2;
+              this.roof.visible = true; this.roof.scale.set(1, wy1 / 0.50, 1); this.roof.position.y = wy1 / 2; this.roof.position.z = COUNTER_Z + WORLD.barrierH * k + 0.015; this.roof.material.opacity = 0.3 * k;
               this.paintTop('L2', core.F.L2.tmax * sramp(u, u0 + 0.8, u0 + 3.5)); this.topPlane.material.opacity = 0.9 * ramp(u, u0 + 0.5, u0 + 1.2);
               const fp = [0.30, 0.32], base = topFieldToWorld(fp[0], fp[1]); base.z += 0.005;
               const g = core.F.L2.gradAt(fp[0], fp[1]), L = Math.hypot(g[0], g[1]) || 1, gq = sramp(u, u0 + 3.6, u0 + 4.4);
               if (gq > 0) { const dir = new THREE.Vector3(-g[0] / L, -g[1] / L, 0); this.probeMarker.visible = true; this.probeMarker.position.copy(base); setArrow(this.arrows.grad, base, dir, 0.22 * gq); this.label(base.clone().add(dir.multiplyScalar(0.22 * gq)), '−∇T', LC.orangeDeep, { size: 36, weight: 700, dx: 18, dy: -6, alpha: gq }); }
             } else {
-              this.lookFrom(...CAM_SIDE); { const a = fb(this.streams.L3, this.qProbe, probe); this.setRobot(a.q, 0.018, a.p); mvI = a.mv; }
+              this.blendCam(CAM_TOP, CAM_SIDE, k); { const a = fb(this.streams.L3, this.qProbe, probe); this.setRobot(qIn(a.q), 0.018, a.p); mvI = a.mv; }
               pc(this.streams.L3, [WORLD.bowlX - 0.04, 0.13]);
-              const hs = lerp(1, WORLD.tallH / WORLD.barrierH, k); this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2;
+              // from the top-closed wall: the roof fades, the wall returns to its normal depth and grows taller
+              const hs = lerp(1, WORLD.tallH / WORLD.barrierH, k); this.barrier.scale.set(1, lerp(wy1 / 0.45, 1, k), hs); this.barrier.position.y = lerp(wy1 / 2, 0.225, k); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2;
+              const rf = 1 - ramp(u, u0, u0 + 0.6); this.roof.visible = rf > 0; this.roof.scale.set(1, wy1 / 0.50, 1); this.roof.position.y = wy1 / 2; this.roof.position.z = COUNTER_Z + WORLD.barrierH * hs + 0.015; this.roof.material.opacity = 0.3 * rf;
               this.paintPlane('T', core.F.L3.tmax * sramp(u, u0 + 0.8, u0 + 3.5), { field: 'L3', quiver: ramp(u, u0 + 3.2, u0 + 4) }); this.plane.material.opacity = 0.92;
               this.gradAt(core.F.L3, probe, u, u0 + 3.6);
             }
@@ -2542,16 +2556,21 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
           const P = TL.policy;
           if (u >= P.split - 0.5 && u < P.line + 0.5) {
             splitCam(); this.split = true;
-            const c2 = u >= P.c2, t0 = c2 ? P.c2m : P.c1, hb = c2 ? WORLD.barrierH : 0.30, off = c2 ? 0.05 : 0;
+            const c2 = u >= P.c2, t0 = c2 ? P.c2m : P.c1, off = c2 ? 0.05 : 0;
+            // between the two held-out conditions: both arms retrace their paths to the start, the banana is regrasped near one end
+            // (faded out and in), and the barrier goes back to its normal height
+            const hb = c2 ? lerp(0.30, WORLD.barrierH, sramp(u, P.c2, P.c2 + 0.8)) : 0.30, back = c2 ? 0 : sramp(u, P.c2 - 1.8, P.c2 - 0.3);
+            for (const mm of this.banana.userData.mats) mm.opacity = c2 ? ramp(u, P.c2, P.c2 + 0.5) : 1 - ramp(u, P.c2 - 0.7, P.c2 - 0.1);
             const hs = hb / WORLD.barrierH; this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + hb / 2;
             // left: before adaptation, teacher off — the familiar straight move (illustrative failure)
             const contact = core.util.contactPoint(), pEnd = (contact.x - off - WORLD.start.x) / (contact.x - WORLD.start.x);
-            const mL = sramp(u, t0[0], t0[1]) * pEnd, qL = this.sampleQ(this.qStraight, mL), pL = this.sampleP(this.trajStraight, mL);
+            const mL = sramp(u, t0[0], t0[1]) * pEnd * (1 - back), qL = this.sampleQ(this.qStraight, mL), pL = this.sampleP(this.trajStraight, mL);
             const fL = u > t0[1] ? fade(u, t0[1], t0[1] + 0.15, t0[1] + 1.6, t0[1] + 3) : 0;
             const ringPos = fieldToWorld(WORLD.barrierX0, pL[1] - 0.01); ringPos.y = Y_TASK - 0.09;
             if (fL > 0) { const px = proj2(ringPos.clone().add(new THREE.Vector3(-0.07, 0, 0.09)), 0); if (px) this.label(null, 'collision', LC.red, { px, size: 28, weight: 700, align: 'right', alpha: fL }); }
             // right: after adaptation, teacher off — the target behaviour
-            const ex = c2 ? this.arcAt(sramp(u, t0[0], t0[2])) : this.arcAt(sramp(u, t0[0], t0[2]), this.qArcHi, this.trajArcHi);
+            const kR = sramp(u, t0[0], t0[2]) * (1 - back); // the return retraces the arc, clear of the barrier
+            const ex = c2 ? this.arcAt(kR) : this.arcAt(kR, this.qArcHi, this.trajArcHi);
             this.halves = [
               { apply: () => { this.setRobot(qL, 0.018, pL, { dx: off }); this.ring.visible = fL > 0; if (fL > 0) { this.ring.position.copy(ringPos); this.ring.rotation.set(Math.PI / 2, 0, 0); const sc = 1 + (u - t0[1]) * 0.7; this.ring.scale.set(sc, sc, sc); this.ring.material.opacity = fL; } } },
               { apply: () => { this.setRobot(ex.q, 0.018, ex.p, { dx: off }); this.ring.visible = false; } }
