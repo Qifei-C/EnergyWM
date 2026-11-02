@@ -1,7 +1,7 @@
 # Storyboard — Energy-Field Teachers for Small VLAs
 
 自动生成：`node scripts/storyboard.js`（字幕从 core.js 直接解析，时间码为全片绝对时间）。
-16:9 · 1920×1080 · 30 fps · 总长 12:07.0（727 s）· 16 章 · 场景切换 0.5 s 交叉淡化。
+16:9 · 1920×1080 · 30 fps · 总长 13:50.0（830 s）· 17 章 · 场景切换 0.5 s 交叉淡化。
 
 **主题**：已具备基本技能的小 VLA 在新的条件组合下，借助教师（几何 + 预测后果）先做对，把纠正学进去，再逐步不需要教师。
 “第一次：预测与推理；之后：便宜、可迁移的技能。” 片中所有优势均为希望通过实验建立的假设，不是结果；屏幕上的数字都来自引用文献并标注出处。
@@ -146,7 +146,7 @@
 | 4:18.0 | 4:24.0 | A processed gradient updates the velocity: normalized, clipped, smoothed. |
 | 4:24.0 | 4:30.0 | Planners and best-of-N stay in the study as strong baselines. |
 
-## 06 · The geometry part of the teacher  `4:30.0 – 5:06.0` (36 s)
+## 06 · The geometry part of the teacher  `4:30.0 – 5:22.0` (52 s)
 
 **3D 动作**
 
@@ -159,6 +159,9 @@
 - 副标题：Local energy: attract to the bowl + repel from the barrier → Geometric progress field T — computed numerically；图例：VLA proposal · corrected chunk — executed
 - 3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk
 - 15 s 公式卡：S(x)‖∇T(x)‖ = 1 — T = 0 at the goal（62% 卡片已移至附录）
+- 36–52 s 我们自己的数值检查（深色背板，前面的标签淡出）：OUR NUMERICAL CHECK — THE GEOMETRIC TARGET ALONE；Reached the goal without passing through an obstacle — nine blocked cases · same start and goal for every method
+- 四行实测条形（9 个有障碍样例）：No correction — the straight proposal 0/9（passes through the obstacle）· Local attraction + repulsion 0/9（stops in front of it）· Local energy + progress field T 7/9（two symmetric starts stall）· Random correction of the same size 0/9
+- 脚注：12 fixed synthetic cases (in the 3 unobstructed ones all four methods reach the goal) · ideal point motion, no robot · 20 mm voxels, 30 mm inflation（数据：trajectories-v2.json，按原始轨迹复核）
 
 **字幕**
 
@@ -169,8 +172,11 @@
 | 4:44.0 | 4:51.0 | A geometric progress field T, computed numerically, measures the way to the goal. |
 | 4:51.0 | 4:58.0 | The field evaluates progress; the VLA still proposes the motion. |
 | 4:58.0 | 5:06.0 | The correction lifts the chunk over the barrier, and the robot executes it. |
+| 5:06.0 | 5:11.5 | We checked the geometric target numerically, on twelve fixed synthetic cases. |
+| 5:11.5 | 5:17.0 | Local energy stops in all nine blocked ones; adding T reaches seven cleanly. |
+| 5:17.0 | 5:22.0 | A random correction of the same size goes through, like no correction at all. |
 
-## 07 · A direction, not a verdict  `5:06.0 – 5:46.0` (40 s)
+## 07 · A direction, not a verdict  `5:22.0 – 6:02.0` (40 s)
 
 **3D 动作**
 
@@ -190,14 +196,14 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 5:06.0 | 5:13.0 | A verdict says only: this action is bad. |
-| 5:13.0 | 5:20.0 | A gradient says how nearby actions would score better. |
-| 5:20.0 | 5:27.0 | Keep the forward progress, add clearance, ease the acceleration. |
-| 5:27.0 | 5:34.0 | Corrections land on the states the student actually visits. |
-| 5:34.0 | 5:40.0 | This helps only if the gradient points to an executable improvement. |
-| 5:40.0 | 5:46.0 | Test: same VLA, same budget vs. imitation, fine-tuning, policy optimization. |
+| 5:22.0 | 5:29.0 | A verdict says only: this action is bad. |
+| 5:29.0 | 5:36.0 | A gradient says how nearby actions would score better. |
+| 5:36.0 | 5:43.0 | Keep the forward progress, add clearance, ease the acceleration. |
+| 5:43.0 | 5:50.0 | Corrections land on the states the student actually visits. |
+| 5:50.0 | 5:56.0 | This helps only if the gradient points to an executable improvement. |
+| 5:56.0 | 6:02.0 | Test: same VLA, same budget vs. imitation, fine-tuning, policy optimization. |
 
-## 08 · Same path, different physics  `5:46.0 – 6:20.0` (34 s)
+## 08 · Same path, different physics  `6:02.0 – 6:36.0` (34 s)
 
 **3D 动作**
 
@@ -215,13 +221,13 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 5:46.0 | 5:54.0 | Same path, different timing — illustrative consequences under one chosen grip. |
-| 5:54.0 | 6:01.0 | As an untimed geometric path, the two are indistinguishable. |
-| 6:01.0 | 6:08.0 | Trained outcome readouts must tell them apart — the key criterion. |
-| 6:08.0 | 6:14.0 | And it must beat a simple analytic grip-stability baseline. |
-| 6:14.0 | 6:20.0 | Fixed-rate action sequences already encode speed; bare paths do not. |
+| 6:02.0 | 6:10.0 | Same path, different timing — illustrative consequences under one chosen grip. |
+| 6:10.0 | 6:17.0 | As an untimed geometric path, the two are indistinguishable. |
+| 6:17.0 | 6:24.0 | Trained outcome readouts must tell them apart — the key criterion. |
+| 6:24.0 | 6:30.0 | And it must beat a simple analytic grip-stability baseline. |
+| 6:30.0 | 6:36.0 | Fixed-rate action sequences already encode speed; bare paths do not. |
 
-## 09 · Change the task, not the weights  `6:20.0 – 7:16.0` (56 s)
+## 09 · Change the task, not the weights  `6:36.0 – 7:32.0` (56 s)
 
 **3D 动作**
 
@@ -244,16 +250,16 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 6:20.0 | 6:28.0 | Separate how the world changes from what we want this time. |
-| 6:28.0 | 6:36.0 | Remove the barrier: the field follows. No weights change. |
-| 6:36.0 | 6:44.0 | Close the top: −∇T turns toward the side opening. |
-| 6:44.0 | 6:52.0 | Raise the barrier: more clearance. Same skills, same predictor. |
-| 6:52.0 | 6:58.0 | New instruction: the blue bowl — and do not touch the cup. |
-| 6:58.0 | 7:04.0 | Only the goal and the contact rules change; the field updates at once. |
-| 7:04.0 | 7:10.0 | When it fails, we can ask where: goal, geometry, contact rules, prediction. |
-| 7:10.0 | 7:16.0 | Structure must still beat an equally informed vector network. |
+| 6:36.0 | 6:44.0 | Separate how the world changes from what we want this time. |
+| 6:44.0 | 6:52.0 | Remove the barrier: the field follows. No weights change. |
+| 6:52.0 | 7:00.0 | Close the top: −∇T turns toward the side opening. |
+| 7:00.0 | 7:08.0 | Raise the barrier: more clearance. Same skills, same predictor. |
+| 7:08.0 | 7:14.0 | New instruction: the blue bowl — and do not touch the cup. |
+| 7:14.0 | 7:20.0 | Only the goal and the contact rules change; the field updates at once. |
+| 7:20.0 | 7:26.0 | When it fails, we can ask where: goal, geometry, contact rules, prediction. |
+| 7:26.0 | 7:32.0 | Structure must still beat an equally informed vector network. |
 
-## 10 · Teacher → energy student  `7:16.0 – 7:58.0` (42 s)
+## 10 · Teacher → energy student  `7:32.0 – 8:14.0` (42 s)
 
 **3D 动作**
 
@@ -271,14 +277,14 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 7:16.0 | 7:23.0 | The full teacher: explicit geometry plus an action-conditioned JEPA. |
-| 7:23.0 | 7:30.0 | JEPA predicts future representations; trained readouts turn them into costs. |
-| 7:30.0 | 7:37.0 | It supervises offline, and may step in again during allowed adaptation. |
-| 7:37.0 | 7:44.0 | Its judgement is distilled into a light energy student: values and gradients. |
-| 7:44.0 | 7:51.0 | The student encodes the scene once and queries consequences cheaply. |
-| 7:51.0 | 7:58.0 | This makes evaluation cheaper. The VLA itself has not changed yet. |
+| 7:32.0 | 7:39.0 | The full teacher: explicit geometry plus an action-conditioned JEPA. |
+| 7:39.0 | 7:46.0 | JEPA predicts future representations; trained readouts turn them into costs. |
+| 7:46.0 | 7:53.0 | It supervises offline, and may step in again during allowed adaptation. |
+| 7:53.0 | 8:00.0 | Its judgement is distilled into a light energy student: values and gradients. |
+| 8:00.0 | 8:07.0 | The student encodes the scene once and queries consequences cheaply. |
+| 8:07.0 | 8:14.0 | This makes evaluation cheaper. The VLA itself has not changed yet. |
 
-## 11 · Policy student: learning to need it less  `7:58.0 – 9:10.0` (72 s)
+## 11 · Policy student: learning to need it less  `8:14.0 – 9:26.0` (72 s)
 
 **3D 动作**
 
@@ -299,18 +305,50 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 7:58.0 | 8:05.0 | Two kinds of learning. The energy student learns to evaluate cheaply. |
-| 8:05.0 | 8:12.0 | The policy student — the VLA itself — must learn to act without it. |
-| 8:12.0 | 8:19.0 | Execute the corrected chunk and observe the outcome; keep only what works. |
-| 8:19.0 | 8:26.0 | Update the VLA with its own objective, replaying old skills. |
-| 8:26.0 | 8:34.0 | Then test with all guidance off, from starts never used in adaptation. |
-| 8:34.0 | 8:42.0 | Left: before adaptation. Right: after. Same held-out start, no teacher. |
-| 8:42.0 | 8:50.0 | A second held-out condition: the grip is near one end of the banana. |
-| 8:50.0 | 8:56.0 | Both run without the teacher; only the VLA’s weights differ. |
-| 8:56.0 | 9:03.0 | Making the correction cheaper is not enough. |
-| 9:03.0 | 9:10.0 | The policy must learn to need it less. |
+| 8:14.0 | 8:21.0 | Two kinds of learning. The energy student learns to evaluate cheaply. |
+| 8:21.0 | 8:28.0 | The policy student — the VLA itself — must learn to act without it. |
+| 8:28.0 | 8:35.0 | Execute the corrected chunk and observe the outcome; keep only what works. |
+| 8:35.0 | 8:42.0 | Update the VLA with its own objective, replaying old skills. |
+| 8:42.0 | 8:50.0 | Then test with all guidance off, from starts never used in adaptation. |
+| 8:50.0 | 8:58.0 | Left: before adaptation. Right: after. Same held-out start, no teacher. |
+| 8:58.0 | 9:06.0 | A second held-out condition: the grip is near one end of the banana. |
+| 9:06.0 | 9:12.0 | Both run without the teacher; only the VLA’s weights differ. |
+| 9:12.0 | 9:19.0 | Making the correction cheaper is not enough. |
+| 9:19.0 | 9:26.0 | The policy must learn to need it less. |
 
-## 12 · Deployment states  `9:10.0 – 9:44.0` (34 s)
+## 12 · From simulation to a real kitchen  `9:26.0 – 10:38.0` (72 s)
+
+**3D 动作**
+
+- 0–34 s 左右分屏。左：仿真厨房（原样），VLA 抓起香蕉放进碗。右：新厨房（暖光、木色台面与柜子、浅色墙、台面后方杂物、相机位置不同），同一个 VLA 在香蕉旁 6 cm 处合爪、空手抬起，标注 misses the grasp（示意失败）。
+- 20–22 s 两半同时叠上“几何层”：按世界坐标着色的高度色 + 公制网格（与纹理、光照、相机无关），两边看起来一致。
+- 34–50 s 全屏新厨房，几何层半透明：蓝色 VLA 原提案（抓偏处）→ 橙色修正动作块移到香蕉上 → 机械臂执行，抓起香蕉放进碗。
+- 50–62 s 深色背板，三张文献卡；62–72 s 问题卡。
+
+**画面文字（原文）**
+
+- 标题：From simulation to a real kitchen；右上：ILLUSTRATIVE FAILURE；左右栏：Simulation — where the VLA was trained / A new kitchen — new texture, light, background — and camera pose
+- 20 s 起：geometry layer: depth in the robot’s frame（两栏）；Same geometry, same frame — in both kitchens
+- 34 s：The teacher works on the geometry layer — in the new kitchen；图例 VLA proposal · corrected chunk — executed；3D 标签：VLA proposal · corrected chunk · geometry layer on — the teacher’s view
+- 50 s：What prior work shows — 95% → <30%（VLA success under modest camera-viewpoint and robot-state perturbations — LIBERO-Plus, arXiv 2510.13626）· 2.7% → 36.9%（real-world success of a sim-trained policy (Click Bell): no randomization vs. table-height randomization; background alone: 11.5% — arXiv 2603.22876, Tab. 1）· 72.5% → 84.7%（π0.5 real-robot OOD completion with a JEPA world-model loss added in training only (5 tasks × 10 rollouts); median latency 54.05 → 55.12 ms — JEPA-WAM, arXiv 2608.09381, §4.4, Tab. 12）
+- 62 s：WHAT WE TEST — Does a teacher that works on geometry make a small VLA adapt to a new kitchen faster — fewer demonstrations to the same success — and keep it once the teacher is off?；Prior work shows robustness gains from world-model losses in training — not adaptation speed. That is the Level 3 test, run in a new environment.
+
+**字幕**
+
+| 开始 | 结束 | 字幕 |
+|---|---|---|
+| 9:26.0 | 9:32.0 | Trained in simulation, the VLA meets a real kitchen. |
+| 9:32.0 | 9:39.0 | New texture, light and background — and a different camera pose. |
+| 9:39.0 | 9:46.0 | A small VLA must absorb all of it from pixels; larger models run slower. |
+| 9:46.0 | 9:53.0 | Underneath, the geometry is the same: depth, in the robot’s own frame. |
+| 9:53.0 | 10:00.0 | The teacher’s world model learns dynamics on this layer, in simulation. |
+| 10:00.0 | 10:08.0 | In the new kitchen it sees the same layer — and corrects the VLA’s chunk. |
+| 10:08.0 | 10:16.0 | Its gradient shows the VLA how to adapt; the update keeps what it learned. |
+| 10:16.0 | 10:22.0 | Prior work: VLAs are brittle to camera and robot-state shifts. |
+| 10:22.0 | 10:28.0 | Spatial setup matters more than texture; a world-model loss in training helps. |
+| 10:28.0 | 10:38.0 | What we test: does the geometry teacher make adaptation to a new kitchen faster? |
+
+## 13 · Deployment states  `10:38.0 – 11:12.0` (34 s)
 
 **3D 动作**
 
@@ -329,13 +367,13 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 9:10.0 | 9:18.0 | Deployment states, from most help to none. |
-| 9:18.0 | 9:25.0 | A: the full teacher, called only for new or uncertain cases. |
-| 9:25.0 | 9:32.0 | B: the energy student — cheaper, but geometry still guides. |
-| 9:32.0 | 9:38.0 | C: the updated VLA alone. T is off, too; only a safety check remains. |
-| 9:38.0 | 9:44.0 | To measure: teacher calls and interventions fall while success rises. |
+| 10:38.0 | 10:46.0 | Deployment states, from most help to none. |
+| 10:46.0 | 10:53.0 | A: the full teacher, called only for new or uncertain cases. |
+| 10:53.0 | 11:00.0 | B: the energy student — cheaper, but geometry still guides. |
+| 11:00.0 | 11:06.0 | C: the updated VLA alone. T is off, too; only a safety check remains. |
+| 11:06.0 | 11:12.0 | To measure: teacher calls and interventions fall while success rises. |
 
-## 13 · Four levels — and the Level 3 test  `9:44.0 – 10:40.0` (56 s)
+## 14 · Four levels — and the Level 3 test  `11:12.0 – 12:08.0` (56 s)
 
 **3D 动作**
 
@@ -352,20 +390,20 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 9:44.0 | 9:52.0 | Level 1: with the teacher, a new combination is handled correctly. |
-| 9:52.0 | 9:58.0 | Level 2: one teacher guides combinations it was never trained on. |
-| 9:58.0 | 10:06.0 | Level 3: after a little guidance, the VLA alone succeeds from new starts. |
-| 10:06.0 | 10:14.0 | Level 4: each related task needs less teaching than the one before. |
-| 10:14.0 | 10:22.0 | Level 3 as a test: the same adaptation budget for every method. |
-| 10:22.0 | 10:30.0 | Direct fine-tuning, imitating corrected actions, and the teacher-guided update. |
-| 10:30.0 | 10:36.0 | Same budget, all guidance off, held-out starts: success decides. |
-| 10:36.0 | 10:40.0 | Limit: the student must be able to see what decides the right action. |
+| 11:12.0 | 11:20.0 | Level 1: with the teacher, a new combination is handled correctly. |
+| 11:20.0 | 11:26.0 | Level 2: one teacher guides combinations it was never trained on. |
+| 11:26.0 | 11:34.0 | Level 3: after a little guidance, the VLA alone succeeds from new starts. |
+| 11:34.0 | 11:42.0 | Level 4: each related task needs less teaching than the one before. |
+| 11:42.0 | 11:50.0 | Level 3 as a test: the same adaptation budget for every method. |
+| 11:50.0 | 11:58.0 | Direct fine-tuning, imitating corrected actions, and the teacher-guided update. |
+| 11:58.0 | 12:04.0 | Same budget, all guidance off, held-out starts: success decides. |
+| 12:04.0 | 12:08.0 | Limit: the student must be able to see what decides the right action. |
 
-## 14 · What we build on — and what it gives us  `10:40.0 – 11:15.0` (35 s)
+## 15 · What we build on — and what it gives us  `12:08.0 – 12:50.0` (42 s)
 
 **3D 动作**
 
-- 纯图示（3D 在背板后）。四行，每 7 s 一行：左边先出（我们基于什么），箭头，右边再出（由此得到什么）。
+- 纯图示（3D 在背板后）。五行，每 7 s 一行（与字幕对齐）：左边先出（我们基于什么），箭头，右边再出（由此得到什么）。
 
 **画面文字（原文）**
 
@@ -374,18 +412,20 @@
 - 2 An action-conditioned world model — trained readouts: grip, slip, contact → Consequences geometry cannot see — same path, different speed — told apart
 - 3 The VLA’s own skills — its proposal and its denoising steps → Corrections close to what it already does — a gradient on its own chunk, not a new path
 - 4 Execution-verified corrections — replayed together with old skills → A VLA that needs the teacher less — checked with all guidance off, from held-out starts
+- 5 Geometry learned in simulation — in the robot’s frame — the layer the world model works on → A teacher that carries into a real kitchen — the same layer in sim and real — its gradient adapts the VLA
 
 **字幕**
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 10:40.0 | 10:47.0 | What we build on, and what each part gives us. |
-| 10:47.0 | 10:54.0 | Geometric fields give a progress signal that is recomputed for any layout. |
-| 10:54.0 | 11:01.0 | A world model adds the consequences geometry cannot see: slip, contact, timing. |
-| 11:01.0 | 11:08.0 | Correcting the VLA’s own chunk keeps it close to the skills it already has. |
-| 11:08.0 | 11:15.0 | Learning from verified corrections, the VLA needs the teacher less. |
+| 12:08.0 | 12:15.0 | What we build on, and what each part gives us. |
+| 12:15.0 | 12:22.0 | Geometric fields give a progress signal that is recomputed for any layout. |
+| 12:22.0 | 12:29.0 | A world model adds the consequences geometry cannot see: slip, contact, timing. |
+| 12:29.0 | 12:36.0 | Correcting the VLA’s own chunk keeps it close to the skills it already has. |
+| 12:36.0 | 12:43.0 | Learning from verified corrections, the VLA needs the teacher less. |
+| 12:43.0 | 12:50.0 | Geometry learned in simulation carries the teacher into a real kitchen. |
 
-## 15 · The proposition  `11:15.0 – 11:45.0` (30 s)
+## 16 · The proposition  `12:50.0 – 13:20.0` (30 s)
 
 **3D 动作**
 
@@ -394,7 +434,7 @@
 **画面文字（原文）**
 
 - THE PROPOSITION — STATED SO THAT IT CAN FAIL
-- For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations with fewer new demonstrations or interactions — and keep that ability once guidance is removed?
+- For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations and new environments with fewer new demonstrations or interactions — and keep that ability once guidance is removed?
 - 1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher
 - 20 s：Not a smarter planner carried forever — a teacher the robot outgrows.
 - 25 s：作者 Qifei C. · CocoMatrix、引用列表与素材致谢
@@ -403,28 +443,30 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 11:15.0 | 11:25.0 | The proposition, stated so that it can fail. |
-| 11:25.0 | 11:33.0 | One part: better inference. Two: faster adaptation. All three: the loop. |
-| 11:33.0 | 11:40.0 | Not a smarter planner carried forever — a teacher the robot outgrows. |
+| 12:50.0 | 13:00.0 | The proposition, stated so that it can fail. |
+| 13:00.0 | 13:08.0 | One part: better inference. Two: faster adaptation. All three: the loop. |
+| 13:08.0 | 13:15.0 | Not a smarter planner carried forever — a teacher the robot outgrows. |
 
-## 16 · Appendix: prior numbers and their scope  `11:45.0 – 12:07.0` (22 s)
+## 17 · Appendix: prior numbers and their scope  `13:20.0 – 13:50.0` (30 s)
 
 **3D 动作**
 
-- 纯图示（3D 在背板后）。
+- 纯图示（3D 在背板后）。0–14 s 第 1 页，14–30 s 第 2 页。
 
 **画面文字（原文）**
 
-- 标题：Appendix: prior numbers and their scope
-- 四张文献数字卡（各自口径）：63 ms（π0.5 per 50-action chunk; evaluated WAMs 4.8–83× slower per inference, model and config dependent）· 16 s / action（V-JEPA 2-AC CEM: 800 samples, 10 iterations, horizon 1, one RTX 4090）· 92% → 41%（perfect predictor, fixed 5-step rollout, goal 5 → 20 steps away）· 62%（least-restrictive filter baseline stalled, open-bag lifting: safe is not the same as progress — LatentCBF, arXiv 2511.18606, Tab. 2）
-- Different tasks and protocols — not one comparison.
+- 第 1 页 Appendix: prior numbers and their scope — 63 ms · 16 s / action · 92% → 41% · 62%（各自口径，同上一版）；Different tasks and protocols — not one comparison.
+- 第 2 页 Appendix: sim-to-real, world-model loss — and our check：95% → <30%（LIBERO-Plus, arXiv 2510.13626）· 2.7% → 36.9%（Click Bell, sim-trained; background 11.5%, lighting 12.3%, camera pose 23.5%; >10k real trials — arXiv 2603.22876, §4.2, Tab. 1）· 72.5% → 84.7%（π0.5 + JEPA objective, training only; LIBERO-Plus 84.5 → 86.3; latency 54.05 → 55.12 ms — arXiv 2608.09381, §4.4, Tab. 2, Tab. 12）
+- OUR NUMERICAL CHECK 7 / 9：blocked cases reached without sampled penetration by local energy + T (local, none, random same-norm: 0/9 each); 12 fixed cases, ideal point kinematics, 20 mm voxels, 30 mm inflation, 5 mm steps, seed 20261101 — Our run, manual field, CPU (5.5 s); trajectories-v2.json, metrics-v2.json
 
 **字幕**
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 11:45.0 | 11:55.0 | Prior numbers, each from its own task and protocol — not one comparison. |
-| 11:55.0 | 12:07.0 | They motivate the questions this plan asks. |
+| 13:20.0 | 13:27.0 | Prior numbers, each from its own task and protocol — not one comparison. |
+| 13:27.0 | 13:34.0 | They motivate the questions this plan asks. |
+| 13:34.0 | 13:42.0 | Sim-to-real and world-model numbers, with their settings. |
+| 13:42.0 | 13:50.0 | Our own numerical check is labelled as ours, with its full setup. |
 
 ## 素材与许可
 

@@ -1,7 +1,7 @@
 # Energy-Field Teachers for Small VLAs — MG 动画
 
-研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 12:07（16 章）、深色“night lab”主题、英文字幕。
-内容是研究计划（2026-11-01）；片中出现的数字全部是已有文献的结果，均在画面上标注出处与口径。
+研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 13:50（17 章）、深色“night lab”主题、英文字幕。
+内容是研究计划（2026-11-01）。文献数字在画面上标注出处与口径；我们自己的数值检查（手工场，12 个合成算例，第 06 章与附录）单独标为“our numerical check”。
 
 ## 目标形态
 - **3D 场景（three.js r128）**：RoboCasa 风格的厨房台面（程序化搭建，schematic）+ Franka Panda（mujoco_menagerie 网格）装在移动底座上；任务是把抓住的香蕉越过台面上的挡板放进碗里。
@@ -31,10 +31,10 @@ node scripts/render_mp4.js --workers 2 --name energywm_720p --page 'aa=0&scale=0
 
 ## 进度
 - [x] 叠加层 + 3D 世界 + 播放器（`core.js` / `scene3d.js` / `app.js`），`build.js` 生成 `render.html` 与 `index.html`
-- [x] 主题对齐：16 章（见 `storyboard.md`）—— 小 VLA 已有技能、遇到新组合时借助教师做对、执行验证后更新 VLA（能量学生 / 策略学生）、教师关闭时的前后对照、逐步撤掉教师；第 03 章讲额外推理的用处与代价（直接策略 vs 采样式世界模型规划器、WAM 的不同设计、五类已有方法、Guided Policy Search 渊源）；Level 3 测试设计；“我们基于什么、由此得到什么”；附录列出文献数字及其口径
+- [x] 主题对齐：17 章（见 `storyboard.md`）—— 小 VLA 已有技能、遇到新组合时借助教师做对、执行验证后更新 VLA（能量学生 / 策略学生）、教师关闭时的前后对照、逐步撤掉教师；第 03 章讲额外推理的用处与代价（直接策略 vs 采样式世界模型规划器、WAM 的不同设计、五类已有方法、Guided Policy Search 渊源）；从仿真到真实厨房（几何层、文献证据、待测的适应速度）；Level 3 测试设计；“我们基于什么、由此得到什么”；附录列出文献数字及其口径
 - [x] 无伪数据：删除示意曲线图；屏幕上的数字全部来自引用文献并标注出处
 - [x] 深色主题、MathJax 排版公式（不出现 `_` / `^`）、无胶囊气泡、YCB 扫描香蕉
-- [ ] MP4 渲染（21,810 帧；720p 预览约 0.6–0.8 s/帧）
+- [ ] MP4 渲染（24,900 帧；720p 预览约 0.6–0.8 s/帧）
 - [ ] 发布 `index.html` 为 Artifact（附 `assets/panda.glb`、`assets/panda_kin.json`、`assets/banana.glb`）
 
 ## 本地预览

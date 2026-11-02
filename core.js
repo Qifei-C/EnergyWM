@@ -643,24 +643,25 @@
   // ---- scene list ----
   // Thesis: a small VLA that already has basic skills meets a new combination of conditions; a teacher
   // (geometry + predicted consequences) helps it get it right, the correction is learned, and the teacher
-  // is gradually no longer needed. Everything shown is a plan / hypothesis; every number is cited prior work.
+  // is gradually no longer needed. Literature numbers are cited on screen; our own numerical check is labelled as ours.
   const SCENES = [
     { id: 'title', name: 'Title', dur: 10 },
     { id: 'gap', name: 'Skills, not the combination', dur: 58 },
     { id: 'tools', name: 'Where extra reasoning helps — and what it costs', dur: 106 },
     { id: 'thesis', name: 'The bet', dur: 36 },
     { id: 'guide', name: 'Guidance: geometry and consequences', dur: 60 },
-    { id: 'geom', name: 'The geometry part of the teacher', dur: 36 },
+    { id: 'geom', name: 'The geometry part of the teacher', dur: 52 },
     { id: 'direct', name: 'A direction, not a verdict', dur: 40 },
     { id: 'slip', name: 'Same path, different physics', dur: 34 },
     { id: 'intervene', name: 'Change the task, not the weights', dur: 56 },
     { id: 'teach', name: 'Teacher → energy student', dur: 42 },
     { id: 'policy', name: 'Policy student: learning to need it less', dur: 72 },
+    { id: 'sim2real', name: 'From simulation to a real kitchen', dur: 72 },
     { id: 'invest', name: 'Deployment states', dur: 34 },
     { id: 'levels', name: 'Four levels — and the Level 3 test', dur: 56 },
-    { id: 'notclaims', name: 'What we build on — and what it gives us', dur: 35 },
+    { id: 'notclaims', name: 'What we build on — and what it gives us', dur: 42 },
     { id: 'end', name: 'The proposition', dur: 30 },
-    { id: 'appendix', name: 'Appendix: prior numbers and their scope', dur: 22 }
+    { id: 'appendix', name: 'Appendix: prior numbers and their scope', dur: 30 }
   ];
   let acc = 0; for (const s of SCENES) { s.start = acc; acc += s.dur; }
   const DUR = acc;
@@ -670,10 +671,11 @@
     gap: { skills: [1.5, 13], chips: [3, 4.5, 7, 10, 12], combo: 16, comboChips: [16.5, 19, 21.5, 24], fail: [30, 33], why: 37, vls: 46, lift: 52 },
     tools: { vla: [3, 6], cem: [[8, 11], [11, 14], [14, 17]], step1: [17, 19], cem2: [[19, 22], [22, 25]], step2: [25, 27], cards: 28, wam: 35, stat: 42, table: 50, fam: 64, gps: 88, question: 96 },
     guide: { pipe: 20, geo: 27, cons: 34, sum: 41, upd: 48 },
-    geom: { ghost: [2, 3.5], a1: [3.5, 5], a2: [5, 6.5], a3: [8, 9.5], T: 14, cut: [14.8, 20.5], quiver: [21, 22], grad: [21.5, 22.7], prop: 23, corr: 25, exec: [27, 32] },
+    geom: { ghost: [2, 3.5], a1: [3.5, 5], a2: [5, 6.5], a3: [8, 9.5], T: 14, cut: [14.8, 20.5], quiver: [21, 22], grad: [21.5, 22.7], prop: 23, corr: 25, exec: [27, 32], check: 36 },
     direct: { keep: 8, lift: 10, ease: 12, bend: [16, 20], eq: 14, dagger: 21 },
     intervene: { phase: [8, 16, 24], goal: 32, goalCut: [33, 37], diag: 44, agf: 50 },
     policy: { split: 30, c1: [31.5, 34, 37.5], c2: 44, c2m: [45.5, 48, 51.5], line: 58 },
+    sim2real: { miss: 0.5, geo: 20, fix: 34, exec: 39, cards: 50, open: 62 },
     invest: { A: 8, B: 15, C: 22, measure: 28 },
     levels: { test: 30, rows: 38, limit: 52 },
     appendix: {}
@@ -1005,23 +1007,58 @@
   // =====================================================================
   function sceneGeom(ctx, u) {
     const T = TL.geom;
+    const keep = 1 - ramp(u, T.check, T.check + 0.6);
     subhead(ctx, 'Local energy: attract to the bowl + repel from the barrier', 80, 140, { color: C.orange, alpha: 1 - ramp(u, T.T - 0.5, T.T) });
-    subhead(ctx, 'Geometric progress field T — computed numerically', 80, 140, { color: C.teal, alpha: ramp(u, T.T, T.T + 0.6) });
-    legendProposal(ctx, 80, 160, ramp(u, T.prop, T.prop + 0.8));
-    if (u > T.T + 1) {
-      ctx.save(); appear(ctx, ramp(u, T.T + 1, T.T + 1.8));
+    subhead(ctx, 'Geometric progress field T — computed numerically', 80, 140, { color: C.teal, alpha: ramp(u, T.T, T.T + 0.6) * keep });
+    legendProposal(ctx, 80, 160, ramp(u, T.prop, T.prop + 0.8) * keep);
+    if (u > T.T + 1 && keep > 0) {
+      ctx.save(); appear(ctx, ramp(u, T.T + 1, T.T + 1.8) * keep);
       panelBox(ctx, 1360, 170, 480, 170, { stroke: C.teal });
       mathText(ctx, 'eikonal', 1600, 250, { size: 46, align: 'center', color: C.ink });
       text(ctx, 'T = 0 at the goal', 1600, 300, { size: 23, align: 'center', color: C.mute });
       ctx.restore();
     }
+    if (u > T.check) numericCheck(ctx, u - T.check);
     captions(ctx, u, [
       [0, 7, 'The geometry part of the teacher. A plain attract-and-repel field…'],
       [7, 14, '…cancels in front of the barrier: no upward push. It stalls.'],
       [14, 21, 'A geometric progress field T, computed numerically, measures the way to the goal.'],
       [21, 28, 'The field evaluates progress; the VLA still proposes the motion.'],
-      [28, 36.2, 'The correction lifts the chunk over the barrier, and the robot executes it.']
+      [28, 36, 'The correction lifts the chunk over the barrier, and the robot executes it.'],
+      [36, 41.5, 'We checked the geometric target numerically, on twelve fixed synthetic cases.'],
+      [41.5, 47, 'Local energy stops in all nine blocked ones; adding T reaches seven cleanly.'],
+      [47, 52.2, 'A random correction of the same size goes through, like no correction at all.']
     ]);
+  }
+  // our own numerical check of the manual geometric field (12 fixed synthetic cases, ideal point kinematics)
+  function numericCheck(ctx, v) {
+    ctx.save(); ctx.globalAlpha = ramp(v, 0, 0.8); wash(ctx, 0.95); ctx.restore();
+    ctx.save(); appear(ctx, ramp(v, 0.3, 1.1));
+    tag(ctx, 'OUR NUMERICAL CHECK — THE GEOMETRIC TARGET ALONE', 160, 240, C.tealDeep, { size: 16 });
+    text(ctx, 'Reached the goal without passing through an obstacle', 160, 306, { fam: SERIF, weight: 600, size: 44, color: C.ink });
+    text(ctx, 'nine blocked cases · same start and goal for every method', 160, 350, { size: 22, color: C.mute });
+    ctx.restore();
+    const rows = [
+      ['No correction — the straight proposal', 0, 'passes through the obstacle', C.blue, 1.5],
+      ['Local attraction + repulsion', 0, 'stops in front of it', C.violet, 2.7],
+      ['Local energy + progress field T', 7, 'two symmetric starts stall', C.teal, 6],
+      ['Random correction of the same size', 0, 'passes through the obstacle', C.faint, 11.2]
+    ];
+    const bx = 780, bw = 720;
+    rows.forEach(([lab, n, note, col, t0], i) => {
+      const y = 450 + i * 100;
+      ctx.save(); appear(ctx, ramp(v, t0, t0 + 0.7), 8);
+      text(ctx, lab, 160, y, { size: 26, weight: 600, color: C.ink });
+      text(ctx, note, 160, y + 32, { size: 19, color: C.mute });
+      ctx.fillStyle = 'rgba(255,255,255,0.07)'; rrect(ctx, bx, y - 22, bw, 30, 6); ctx.fill();
+      const f = (n / 9) * sramp(v, t0 + 0.3, t0 + 1.3);
+      if (f > 0) { ctx.fillStyle = col; rrect(ctx, bx, y - 22, Math.max(bw * f, 10), 30, 6); ctx.fill(); }
+      text(ctx, `${n} / 9`, bx + bw + 40, y + 6, { fam: SERIF, weight: 600, size: 40, color: n ? col : C.mute });
+      ctx.restore();
+    });
+    ctx.save(); ctx.globalAlpha = ramp(v, 6.5, 7.3);
+    text(ctx, '12 fixed synthetic cases (in the 3 unobstructed ones all four methods reach the goal) · ideal point motion, no robot · 20 mm voxels, 30 mm inflation', 160, 862, { size: 18, color: C.faint });
+    ctx.restore();
   }
 
 
@@ -1265,6 +1302,66 @@
 
 
   // =====================================================================
+  // 12 — From simulation to a real kitchen
+  // =====================================================================
+  function sceneSim2Real(ctx, u) {
+    const S = TL.sim2real;
+    if (u < S.fix) {
+      topWash(ctx, 300, 0.94);
+      heading(ctx, 'From simulation to a real kitchen', 100, 150, 42, ramp(u, 0, 0.8));
+      ctx.save(); ctx.globalAlpha = ramp(u, 1, 2) * (1 - ramp(u, S.geo - 0.5, S.geo)); spaced(ctx, 'ILLUSTRATIVE FAILURE', 1150, 150, { size: 16, weight: 600, color: C.orangeDeep, spacing: 2.2 }); ctx.restore();
+      ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(959, 190, 2, 890); ctx.restore();
+      const g = ramp(u, S.geo + 0.5, S.geo + 1.5);
+      [[0, 'Simulation', 'where the VLA was trained', C.blue], [960, 'A new kitchen', 'new texture, light, background — and camera pose', C.orange]].forEach(([x, title, sub, col]) => {
+        ctx.save(); ctx.globalAlpha = ramp(u, 0.6, 1.4);
+        ctx.fillStyle = col; rrect(ctx, x + 60, 206, 4, 54, 2); ctx.fill();
+        haloText(ctx, title, x + 80, 232, { size: 30, weight: 600, color: col });
+        haloText(ctx, sub, x + 80, 262, { size: 18, color: C.mute, alpha: 1 - g });
+        haloText(ctx, 'geometry layer: depth in the robot’s frame', x + 80, 262, { size: 18, color: C.tealDeep, alpha: g });
+        ctx.restore();
+      });
+      haloText(ctx, 'Same geometry, same frame — in both kitchens', 960, 330, { size: 26, weight: 600, color: C.tealDeep, align: 'center', alpha: ramp(u, S.geo + 2, S.geo + 3) });
+    } else if (u < S.cards) {
+      subhead(ctx, 'The teacher works on the geometry layer — in the new kitchen', 80, 140, { color: C.teal });
+      legendProposal(ctx, 80, 160, ramp(u, S.fix + 1, S.fix + 1.8));
+    } else if (u < S.open) {
+      wash(ctx, 0.96);
+      heading(ctx, 'What prior work shows', 100, 170, 48, ramp(u, S.cards, S.cards + 0.8));
+      const cards = [
+        ['95% → <30%', 'VLA success under modest camera-viewpoint and robot-state perturbations', 'LIBERO-Plus — Fei et al., arXiv 2510.13626', C.blue],
+        ['2.7% → 36.9%', 'real-world success of a sim-trained policy (Click Bell): no randomization vs. table-height randomization; background alone: 11.5%', 'Jin et al., arXiv 2603.22876, Tab. 1', C.teal],
+        ['72.5% → 84.7%', 'π0.5 real-robot OOD completion with a JEPA world-model loss added in training only (5 tasks × 10 rollouts); median latency 54.05 → 55.12 ms', 'JEPA-WAM — Lin et al., arXiv 2608.09381, §4.4, Tab. 12', C.orange]
+      ];
+      cards.forEach(([big, lab, src, col], i) => {
+        ctx.save(); appear(ctx, ramp(u, S.cards + 0.5 + i * 2.5, S.cards + 1.2 + i * 2.5));
+        statCard(ctx, 100 + i * 590, 250, 560, 350, big, lab, src, { col, bigSize: 54, lsize: 22 });
+        ctx.restore();
+      });
+    } else {
+      wash(ctx, 0.96);
+      ctx.save(); appear(ctx, ramp(u, S.open + 0.3, S.open + 1.1));
+      tag(ctx, 'WHAT WE TEST', 160, 330, C.orangeDeep, { size: 18 });
+      paragraph(ctx, 'Does a teacher that works on geometry make a small VLA adapt to a new kitchen faster — fewer demonstrations to the same success — and keep it once the teacher is off?', 160, 420, 1600, { fam: SERIF, weight: 600, size: 46, color: C.ink, lh: 64 });
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = ramp(u, S.open + 3, S.open + 4);
+      text(ctx, 'Prior work shows robustness gains from world-model losses in training — not adaptation speed. That is the Level 3 test, run in a new environment.', 160, 700, { size: 22, color: C.mute });
+      ctx.restore();
+    }
+    captions(ctx, u, [
+      [0, 6, 'Trained in simulation, the VLA meets a real kitchen.'],
+      [6, 13, 'New texture, light and background — and a different camera pose.'],
+      [13, 20, 'A small VLA must absorb all of it from pixels; larger models run slower.'],
+      [20, 27, 'Underneath, the geometry is the same: depth, in the robot’s own frame.'],
+      [27, 34, 'The teacher’s world model learns dynamics on this layer, in simulation.'],
+      [34, 42, 'In the new kitchen it sees the same layer — and corrects the VLA’s chunk.'],
+      [42, 50, 'Its gradient shows the VLA how to adapt; the update keeps what it learned.'],
+      [50, 56, 'Prior work: VLAs are brittle to camera and robot-state shifts.'],
+      [56, 62, 'Spatial setup matters more than texture; a world-model loss in training helps.'],
+      [62, 72.2, 'What we test: does the geometry teacher make adaptation to a new kitchen faster?']
+    ]);
+  }
+
+  // =====================================================================
   // 12 — Deployment states
   // =====================================================================
   function sceneInvest(ctx, u) {
@@ -1377,21 +1474,22 @@
       ['Geometric fields', 'SDF and a numerically computed progress field T', 'A progress signal for any layout', 'recomputed when the scene changes — no retraining'],
       ['An action-conditioned world model', 'trained readouts: grip, slip, contact', 'Consequences geometry cannot see', 'same path, different speed — told apart'],
       ['The VLA’s own skills', 'its proposal and its denoising steps', 'Corrections close to what it already does', 'a gradient on its own chunk, not a new path'],
-      ['Execution-verified corrections', 'replayed together with old skills', 'A VLA that needs the teacher less', 'checked with all guidance off, from held-out starts']
+      ['Execution-verified corrections', 'replayed together with old skills', 'A VLA that needs the teacher less', 'checked with all guidance off, from held-out starts'],
+      ['Geometry learned in simulation', 'in the robot’s frame — the layer the world model works on', 'A teacher that carries into a real kitchen', 'the same layer in sim and real — its gradient adapts the VLA']
     ];
     rows.forEach(([l, ls, r, rs], i) => {
-      const y = 330 + i * 140, t0 = 1 + i * 7;
+      const y = 318 + i * 118, t0 = 7.5 + i * 7;
       ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.7), 10);
-      ctx.fillStyle = C.teal; rrect(ctx, 100, y - 34, 5, 96, 2); ctx.fill();
-      text(ctx, l, 130, y, { size: 30, weight: 600, color: C.ink });
+      ctx.fillStyle = C.teal; rrect(ctx, 100, y - 32, 5, 88, 2); ctx.fill();
+      text(ctx, l, 130, y, { size: 29, weight: 600, color: C.ink });
       text(ctx, ls, 130, y + 42, { size: 21, color: C.mute });
       ctx.restore();
       ctx.save(); ctx.globalAlpha = ramp(u, t0 + 1.6, t0 + 2.2);
       arrow(ctx, 860, y + 6, 950, y + 6, { color: C.faint, width: 3, head: 12 });
       ctx.restore();
       ctx.save(); appear(ctx, ramp(u, t0 + 2.2, t0 + 2.9), 10);
-      ctx.fillStyle = C.orange; rrect(ctx, 1000, y - 34, 5, 96, 2); ctx.fill();
-      text(ctx, r, 1030, y, { size: 30, weight: 600, color: C.ink });
+      ctx.fillStyle = C.orange; rrect(ctx, 1000, y - 32, 5, 88, 2); ctx.fill();
+      text(ctx, r, 1030, y, { size: 29, weight: 600, color: C.ink });
       text(ctx, rs, 1030, y + 42, { size: 21, color: C.mute });
       ctx.restore();
     });
@@ -1400,7 +1498,8 @@
       [7, 14, 'Geometric fields give a progress signal that is recomputed for any layout.'],
       [14, 21, 'A world model adds the consequences geometry cannot see: slip, contact, timing.'],
       [21, 28, 'Correcting the VLA’s own chunk keeps it close to the skills it already has.'],
-      [28, 35.2, 'Learning from verified corrections, the VLA needs the teacher less.']
+      [28, 35, 'Learning from verified corrections, the VLA needs the teacher less.'],
+      [35, 42.2, 'Geometry learned in simulation carries the teacher into a real kitchen.']
     ]);
   }
 
@@ -1412,7 +1511,7 @@
     wash(ctx, 0.97);
     ctx.save(); appear(ctx, ramp(u, 0.4, 1.2));
     tag(ctx, 'THE PROPOSITION — STATED SO THAT IT CAN FAIL', 160, 200, C.orangeDeep, { size: 18 });
-    paragraph(ctx, 'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations with fewer new demonstrations or interactions — and keep that ability once guidance is removed?', 160, 282, 1600, { fam: SERIF, weight: 600, size: 44, color: C.ink, lh: 62 });
+    paragraph(ctx, 'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations and new environments with fewer new demonstrations or interactions — and keep that ability once guidance is removed?', 160, 282, 1600, { fam: SERIF, weight: 600, size: 44, color: C.ink, lh: 62 });
     ctx.restore();
     const parts = [['Useful on new combinations', C.orange], ['Cheaper adaptation', C.teal], ['Holds without the teacher', C.green]];
     parts.forEach(([s, col], i) => {
@@ -1426,10 +1525,11 @@
     text(ctx, 'Not a smarter planner carried forever — a teacher the robot outgrows.', 960, 740, { fam: SERIF, weight: 600, size: 38, color: C.orangeDeep, align: 'center' });
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 25, 26);
-    text(ctx, 'Qifei C.', 160, 826, { size: 24, weight: 600, color: C.ink });
-    text(ctx, '· CocoMatrix', 160 + (font(ctx, 600, 24, SANS), ctx.measureText('Qifei C.').width) + 10, 826, { size: 24, color: C.mute });
-    text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2601.16163 · 2603.16666 · 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011', 160, 866, { size: 16, color: C.faint });
-    text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 894, { size: 16, color: C.faint });
+    text(ctx, 'Qifei C.', 160, 818, { size: 24, weight: 600, color: C.ink });
+    text(ctx, '· CocoMatrix', 160 + (font(ctx, 600, 24, SANS), ctx.measureText('Qifei C.').width) + 10, 818, { size: 24, color: C.mute });
+    text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2601.16163 · 2603.16666 · 2608.09381 · 2510.13626 · 2603.22876', 160, 856, { size: 16, color: C.faint });
+    text(ctx, 'arXiv 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011 · our numerical check: manual field, 12 synthetic cases', 160, 880, { size: 16, color: C.faint });
+    text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 906, { size: 16, color: C.faint });
     ctx.restore();
     captions(ctx, u, [
       [0, 10, 'The proposition, stated so that it can fail.'],
@@ -1443,8 +1543,14 @@
   // =====================================================================
   function sceneAppendix(ctx, u) {
     wash(ctx, 0.97);
-    heading(ctx, 'Appendix: prior numbers and their scope', 100, 170, 48, ramp(u, 0, 0.8));
-    const cards = [
+    const P2 = 14, pg = u < P2 ? 0 : 1, v = u - pg * P2;
+    heading(ctx, pg ? 'Appendix: sim-to-real, world-model loss — and our check' : 'Appendix: prior numbers and their scope', 100, 170, 48, ramp(v, 0, 0.8));
+    const cards = pg ? [
+      ['95% → <30%', 'VLA success under modest perturbations, mainly camera viewpoint and robot initial state (7 perturbation dimensions)', 'LIBERO-Plus — Fei et al., arXiv 2510.13626', C.blue],
+      ['2.7% → 36.9%', 'Click Bell, real world, sim-trained: no randomization vs. table-height randomization (background 11.5%, lighting 12.3%, camera pose 23.5%); >10k real trials overall', 'Jin et al., arXiv 2603.22876, §4.2, Tab. 1', C.teal],
+      ['72.5% → 84.7%', 'π0.5 + JEPA world-model objective, training only: real-robot OOD completion (5 bimanual tasks × 10 rollouts); LIBERO-Plus 84.5 → 86.3; latency 54.05 → 55.12 ms', 'JEPA-WAM — Lin et al., arXiv 2608.09381, §4.4, Tab. 2, Tab. 12', C.orange],
+      ['7 / 9', 'blocked cases reached without sampled penetration by local energy + T (local, none, random same-norm: 0/9 each); 12 fixed cases, ideal point kinematics, 20 mm voxels, 30 mm inflation, 5 mm steps, seed 20261101', 'Our run — manual field, CPU (5.5 s); trajectories-v2.json, metrics-v2.json', C.teal]
+    ] : [
       ['63 ms', 'π0.5, per 50-action chunk; evaluated WAMs 4.8–83× slower per inference (model and config dependent)', 'Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', C.blue],
       ['16 s / action', 'V-JEPA 2-AC CEM planning: 800 samples, 10 iterations, horizon 1, one RTX 4090', 'V-JEPA 2, arXiv 2506.09985, Tab. 3', C.violet],
       ['92% → 41%', 'perfect predictor, fixed 5-step rollout, goal 5 → 20 steps away', 'The Planning Limits of Latent World Models, arXiv 2609.39235', C.violet],
@@ -1452,20 +1558,22 @@
     ];
     cards.forEach(([big, lab, src, col], i) => {
       const x = 100 + (i % 2) * 880, y = 230 + Math.floor(i / 2) * 300;
-      ctx.save(); appear(ctx, ramp(u, 0.6 + i * 0.8, 1.3 + i * 0.8));
-      statCard(ctx, x, y, 840, 270, big, lab, src, { col, bigSize: 58, lsize: 22 });
+      ctx.save(); appear(ctx, ramp(v, 0.6 + i * 0.8, 1.3 + i * 0.8));
+      statCard(ctx, x, y, 840, 270, big, lab, src, { col, bigSize: 58, lsize: pg ? 18 : 22, tag: pg && i === 3 ? 'OUR NUMERICAL CHECK' : 'PRIOR WORK' });
       ctx.restore();
     });
-    ctx.save(); ctx.globalAlpha = ramp(u, 4.5, 5.5);
+    ctx.save(); ctx.globalAlpha = ramp(v, 4.5, 5.5);
     text(ctx, 'Different tasks and protocols — not one comparison.', 100, 860, { size: 22, color: C.mute });
     ctx.restore();
     captions(ctx, u, [
-      [0, 10, 'Prior numbers, each from its own task and protocol — not one comparison.'],
-      [10, 22.2, 'They motivate the questions this plan asks.']
+      [0, 7, 'Prior numbers, each from its own task and protocol — not one comparison.'],
+      [7, 14, 'They motivate the questions this plan asks.'],
+      [14, 22, 'Sim-to-real and world-model numbers, with their settings.'],
+      [22, 30.2, 'Our own numerical check is labelled as ours, with its full setup.']
     ]);
   }
 
-  const DRAW = { title: sceneTitle, gap: sceneGap, tools: sceneTools, thesis: sceneThesis, guide: sceneGuide, geom: sceneGeom, direct: sceneDirect, slip: sceneSlip, intervene: sceneIntervene, teach: sceneTeach, policy: scenePolicy, invest: sceneInvest, levels: sceneLevels, notclaims: sceneNotClaims, end: sceneEnd, appendix: sceneAppendix };
+  const DRAW = { title: sceneTitle, gap: sceneGap, tools: sceneTools, thesis: sceneThesis, guide: sceneGuide, geom: sceneGeom, direct: sceneDirect, slip: sceneSlip, intervene: sceneIntervene, teach: sceneTeach, policy: scenePolicy, sim2real: sceneSim2Real, invest: sceneInvest, levels: sceneLevels, notclaims: sceneNotClaims, end: sceneEnd, appendix: sceneAppendix };
   const OPAQUE = { thesis: 1, teach: 1, levels: 1, notclaims: 1, end: 1, appendix: 1 }; // diagram scenes: no vignette needed
 
   // ---- fields (built once; scene3d.js reads core.F) ----
@@ -1515,7 +1623,7 @@
   function overlayCovers(t) {
     const i = sceneIndexAt(t), s = SCENES[i], u = t - s.start;
     if (u < FADE + 0.05 || u > s.dur - 0.05) return false;
-    return !!OPAQUE[s.id] || (s.id === 'tools' && u > TL.tools.table + 1) || (s.id === 'policy' && (u < TL.policy.split - 0.5 || u > TL.policy.line + 1));
+    return !!OPAQUE[s.id] || (s.id === 'tools' && u > TL.tools.table + 1) || (s.id === 'policy' && (u < TL.policy.split - 0.5 || u > TL.policy.line + 1)) || (s.id === 'sim2real' && u > TL.sim2real.cards + 1) || (s.id === 'geom' && u > TL.geom.check + 1);
   }
   const util = { clamp, lerp, ramp, sramp, easeIO, easeOut, fade, WORLD, FX0, FX1, FZ0, FZ1, rng: mulberry32, arcPath, contactPoint, guideTau, SLIP, TL, rgba };
   return {

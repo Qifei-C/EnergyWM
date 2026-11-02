@@ -1,11 +1,12 @@
 # EnergyWM — motion-graphics explainer of the energy-field-teacher research plan
 
-Purpose: a ~12:07 (16 chapters), 1920×1080, 30 fps explainer (English captions, dark "night lab" look) of the plan. Thesis: a small VLA
+Purpose: a ~13:50 (17 chapters), 1920×1080, 30 fps explainer (English captions, dark "night lab" look) of the plan. Thesis: a small VLA
 that already has basic skills meets a new combination of conditions; a teacher (geometry + predicted consequences) helps it
 get it right, the correction is learned, and the teacher is gradually no longer needed ("first time: predict and reason;
 after that: a cheap, transferable skill"). See `storyboard.md`.
-It is a research *plan* (Concept / Hypothesis, 2026-11-01): never present any number as a result. No fake data: every
-number on screen is cited prior work with its source on screen; illustrative charts are not allowed.
+It is a research *plan* (2026-11-01). No fake data: literature numbers are cited on screen with their scope; our own
+numerical check (manual field, 12 synthetic cases, chapter 06 + appendix) is labelled as ours with its setup. Illustrative
+charts are not allowed; illustrative animations are labelled where they depict a failure.
 
 ## Architecture (two layers, one timeline)
 - `core.js` — shared engine. Design tokens, text/shape helpers, eikonal fast-sweeping solver (`makeField`), marching squares, scene list `SCENES` with absolute `start`/`dur`, 2D overlay drawing (captions, eyebrow, cards, charts). Everything is a pure function of time `t` in a 1920×1080 coordinate space.

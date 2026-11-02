@@ -69,7 +69,10 @@ const D = {
       '14 s 切换为数值计算的测地进度场 T（波前 14.8–20.5 s，−∇T 21.5 s）。23 s 蓝色 VLA 原提案（直线穿过挡板）；25 s 橙色修正动作块（形状取自 −∇T 流线并保证香蕉全长净空）。',
       '27–32 s 机械臂执行橙色修正动作块。'],
     txt: ['副标题：Local energy: attract to the bowl + repel from the barrier → Geometric progress field T — computed numerically；图例：VLA proposal · corrected chunk — executed',
-      '3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk', '15 s 公式卡：S(x)‖∇T(x)‖ = 1 — T = 0 at the goal（62% 卡片已移至附录）']
+      '3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk', '15 s 公式卡：S(x)‖∇T(x)‖ = 1 — T = 0 at the goal（62% 卡片已移至附录）',
+      '36–52 s 我们自己的数值检查（深色背板，前面的标签淡出）：OUR NUMERICAL CHECK — THE GEOMETRIC TARGET ALONE；Reached the goal without passing through an obstacle — nine blocked cases · same start and goal for every method',
+      '四行实测条形（9 个有障碍样例）：No correction — the straight proposal 0/9（passes through the obstacle）· Local attraction + repulsion 0/9（stops in front of it）· Local energy + progress field T 7/9（two symmetric starts stall）· Random correction of the same size 0/9',
+      '脚注：12 fixed synthetic cases (in the 3 unobstructed ones all four methods reach the goal) · ideal point motion, no robot · 20 mm voxels, 30 mm inflation（数据：trajectories-v2.json，按原始轨迹复核）']
   },
   direct: {
     act: ['VLA 的直线动作块（蓝）穿过挡板；8 / 10 / 12 s 依次出现保持前进、增加净空、减缓加速的箭头。',
@@ -111,6 +114,17 @@ const D = {
       '条件标签：Held-out condition 1 · a higher barrier → Held-out condition 2 · grip near one end；3D 标签：collision',
       '58 s：Making the correction cheaper is not enough. / The policy must learn to need it less.']
   },
+  sim2real: {
+    act: ['0–34 s 左右分屏。左：仿真厨房（原样），VLA 抓起香蕉放进碗。右：新厨房（暖光、木色台面与柜子、浅色墙、台面后方杂物、相机位置不同），同一个 VLA 在香蕉旁 6 cm 处合爪、空手抬起，标注 misses the grasp（示意失败）。',
+      '20–22 s 两半同时叠上“几何层”：按世界坐标着色的高度色 + 公制网格（与纹理、光照、相机无关），两边看起来一致。',
+      '34–50 s 全屏新厨房，几何层半透明：蓝色 VLA 原提案（抓偏处）→ 橙色修正动作块移到香蕉上 → 机械臂执行，抓起香蕉放进碗。',
+      '50–62 s 深色背板，三张文献卡；62–72 s 问题卡。'],
+    txt: ['标题：From simulation to a real kitchen；右上：ILLUSTRATIVE FAILURE；左右栏：Simulation — where the VLA was trained / A new kitchen — new texture, light, background — and camera pose',
+      '20 s 起：geometry layer: depth in the robot’s frame（两栏）；Same geometry, same frame — in both kitchens',
+      '34 s：The teacher works on the geometry layer — in the new kitchen；图例 VLA proposal · corrected chunk — executed；3D 标签：VLA proposal · corrected chunk · geometry layer on — the teacher’s view',
+      '50 s：What prior work shows — 95% → <30%（VLA success under modest camera-viewpoint and robot-state perturbations — LIBERO-Plus, arXiv 2510.13626）· 2.7% → 36.9%（real-world success of a sim-trained policy (Click Bell): no randomization vs. table-height randomization; background alone: 11.5% — arXiv 2603.22876, Tab. 1）· 72.5% → 84.7%（π0.5 real-robot OOD completion with a JEPA world-model loss added in training only (5 tasks × 10 rollouts); median latency 54.05 → 55.12 ms — JEPA-WAM, arXiv 2608.09381, §4.4, Tab. 12）',
+      '62 s：WHAT WE TEST — Does a teacher that works on geometry make a small VLA adapt to a new kitchen faster — fewer demonstrations to the same success — and keep it once the teacher is off?；Prior work shows robustness gains from world-model losses in training — not adaptation speed. That is the Level 3 test, run in a new environment.']
+  },
   invest: {
     act: ['机械臂循环执行越障搬运；T 切片与 −∇T 可见；状态 A 香蕉周围大光环（JEPA predictor），B 缩小（light module）。',
       '22–24 s 进入状态 C：切片、箭头、光环淡出，机械臂不透明独立执行。'],
@@ -125,24 +139,25 @@ const D = {
       '52 s：LIMIT — The student must observe what decides the right action.']
   },
   notclaims: {
-    act: ['纯图示（3D 在背板后）。四行，每 7 s 一行：左边先出（我们基于什么），箭头，右边再出（由此得到什么）。'],
+    act: ['纯图示（3D 在背板后）。五行，每 7 s 一行（与字幕对齐）：左边先出（我们基于什么），箭头，右边再出（由此得到什么）。'],
     txt: ['标题：What we build on — and what it gives us；列头 WE BUILD ON / WHAT WE GAIN',
       '1 Geometric fields — SDF and a numerically computed progress field T → A progress signal for any layout — recomputed when the scene changes — no retraining',
       '2 An action-conditioned world model — trained readouts: grip, slip, contact → Consequences geometry cannot see — same path, different speed — told apart',
       '3 The VLA’s own skills — its proposal and its denoising steps → Corrections close to what it already does — a gradient on its own chunk, not a new path',
-      '4 Execution-verified corrections — replayed together with old skills → A VLA that needs the teacher less — checked with all guidance off, from held-out starts']
+      '4 Execution-verified corrections — replayed together with old skills → A VLA that needs the teacher less — checked with all guidance off, from held-out starts',
+      '5 Geometry learned in simulation — in the robot’s frame — the layer the world model works on → A teacher that carries into a real kitchen — the same layer in sim and real — its gradient adapts the VLA']
   },
   end: {
     act: ['纯图示（3D 在背板后）。'],
     txt: ['THE PROPOSITION — STATED SO THAT IT CAN FAIL',
-      'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations with fewer new demonstrations or interactions — and keep that ability once guidance is removed?',
+      'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations and new environments with fewer new demonstrations or interactions — and keep that ability once guidance is removed?',
       '1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher', '20 s：Not a smarter planner carried forever — a teacher the robot outgrows.', '25 s：作者 Qifei C. · CocoMatrix、引用列表与素材致谢']
   },
   appendix: {
-    act: ['纯图示（3D 在背板后）。'],
-    txt: ['标题：Appendix: prior numbers and their scope',
-      '四张文献数字卡（各自口径）：63 ms（π0.5 per 50-action chunk; evaluated WAMs 4.8–83× slower per inference, model and config dependent）· 16 s / action（V-JEPA 2-AC CEM: 800 samples, 10 iterations, horizon 1, one RTX 4090）· 92% → 41%（perfect predictor, fixed 5-step rollout, goal 5 → 20 steps away）· 62%（least-restrictive filter baseline stalled, open-bag lifting: safe is not the same as progress — LatentCBF, arXiv 2511.18606, Tab. 2）',
-      'Different tasks and protocols — not one comparison.']
+    act: ['纯图示（3D 在背板后）。0–14 s 第 1 页，14–30 s 第 2 页。'],
+    txt: ['第 1 页 Appendix: prior numbers and their scope — 63 ms · 16 s / action · 92% → 41% · 62%（各自口径，同上一版）；Different tasks and protocols — not one comparison.',
+      '第 2 页 Appendix: sim-to-real, world-model loss — and our check：95% → <30%（LIBERO-Plus, arXiv 2510.13626）· 2.7% → 36.9%（Click Bell, sim-trained; background 11.5%, lighting 12.3%, camera pose 23.5%; >10k real trials — arXiv 2603.22876, §4.2, Tab. 1）· 72.5% → 84.7%（π0.5 + JEPA objective, training only; LIBERO-Plus 84.5 → 86.3; latency 54.05 → 55.12 ms — arXiv 2608.09381, §4.4, Tab. 2, Tab. 12）',
+      'OUR NUMERICAL CHECK 7 / 9：blocked cases reached without sampled penetration by local energy + T (local, none, random same-norm: 0/9 each); 12 fixed cases, ideal point kinematics, 20 mm voxels, 30 mm inflation, 5 mm steps, seed 20261101 — Our run, manual field, CPU (5.5 s); trajectories-v2.json, metrics-v2.json']
   }
 };
 
