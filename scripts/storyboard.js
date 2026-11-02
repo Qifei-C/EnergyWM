@@ -33,24 +33,27 @@ const D = {
       '3D 标签：collision · ceiling removed from here on']
   },
   tools: {
-    act: ['0–44 s 左右分屏（同一机位，标注为示意失败）。左：直接策略 3–6 s 直线前进撞挡板。',
+    act: ['0–50 s 左右分屏（同一机位，标注为示意失败）。左：直接策略 3–6 s 直线前进撞挡板。',
       '右：基于采样的世界模型规划器（示意，V-JEPA 2-AC 式 CEM）：两轮“想象—评分—走一步”（紫色短轨迹 + 幽灵香蕉，最佳候选橙色），停在挡板前。',
-      '44 s 起：深色背板上的问题卡。'],
+      '28 s 左卡、35 s 右卡、42 s 数据卡（其余变暗）。',
+      '50–64 s 深色背板：世界动作模型的三种设计；64–88 s 五类已有方法对比表；88 s GPS 横幅；96–106 s 问题卡。'],
     txt: ['标题：Where extra reasoning helps — and what it costs；右上：ILLUSTRATIVE FAILURE · COMBINED CHANGES',
       '左栏：Direct-policy baseline — e.g. π0.5 · GR00T N1.6 — direct action-chunk generation, no external rollout search',
       '右栏：A sampling-based world-model planner — e.g. V-JEPA 2-AC with CEM — not every world action model works this way',
       '3D 标签：collision · imagining… · best score · stalls at the barrier',
       '28 s 左卡：63 ms — per 50-action chunk, π0.5 (reported)；✓ direct action-chunk generation ✗ no separate action–outcome evaluation loop；来源 arXiv 2603.22078, Tab. 5',
-      '28 s 右卡：16 s / action — 800 samples · 10 iterations · horizon 1 · one RTX 4090；✓ evaluates imagined outcomes ✗ pays for search at every step；来源 V-JEPA 2, arXiv 2506.09985, Tab. 3',
-      '36 s 数据卡：92% → 41% — success with a perfect predictor and a fixed 5-step rollout, as the goal moves from 5 to 20 steps away — arXiv 2609.39235',
-      '44 s：THE QUESTION — When a new constraint needs extra computation, can that computation become help we no longer need next time?',
-      '45 s：World action models differ: Cosmos Policy also generates actions directly (arXiv 2601.16163); Fast-WAM skips test-time imagination (arXiv 2603.16666).']
+      '35 s 右卡：16 s / action — 800 samples · 10 iterations · horizon 1 · one RTX 4090；✓ evaluates imagined outcomes ✗ pays for search at every step；来源 V-JEPA 2, arXiv 2506.09985, Tab. 3',
+      '42 s 数据卡：92% → 41% — success with a perfect predictor and a fixed 5-step rollout, as the goal moves from 5 to 20 steps away — arXiv 2609.39235',
+      '50 s：World action models are not one design — Imagine, score, then act（V-JEPA 2-AC with CEM, arXiv 2506.09985）· Predict actions and futures together（generates actions directly, with future states and values; can also plan — Cosmos Policy, Kim et al., arXiv 2601.16163）· Learn from video, act directly（video co-training, then no imagination at test time — Fast-WAM, Yuan et al., arXiv 2603.16666）',
+      '59 s：Latency also varies: the WAMs evaluated in one benchmark were 4.8× to 83× slower per inference than π0.5. — Model- and configuration-dependent, arXiv 2603.22078, Tab. 5',
+      '64 s：Other tools already solve part of it — ALREADY GOOD AT / WHAT WE WANT TO ADD：Motion planning (cuRobo) · MPC / model-based RL (TD-MPC2) · Fine-tuning the VLA (π0.5) · Inference-time guidance (OmniGuide · DynaGuide) · Amortized guidance (AGF)',
+      '88 s：Not new: an optimizer that guides a policy which then acts alone — Guided Policy Search (Levine & Koltun, ICML 2013).',
+      '96 s：THE QUESTION — When a new constraint needs extra computation, can that computation become help we no longer need next time?']
   },
   thesis: {
     act: ['纯图示（3D 在背板后）。'],
     txt: ['First time: predict and reason. / After that: a cheap, transferable skill.',
-      '链条：Existing skills / the small VLA → Predictive correction / in a new situation → Fast adaptation / the VLA is updated → Acting alone / and accumulating',
-      '27 s：HYPOTHESIS · TO BE ESTABLISHED BY EXPERIMENT']
+      '链条：Existing skills / the small VLA → Predictive correction / in a new situation → Fast adaptation / the VLA is updated → Acting alone / and accumulating']
   },
   guide: {
     act: ['动作块去噪循环（12 s 一次，τ 在 8.5 s 内 0→1）。蓝色细线 = VLA 自己的原提案（不变）；去噪中的动作块在引导窗口内由蓝变橙（= 修正后的动作块），引导箭头标为 guidance update。',
@@ -103,7 +106,7 @@ const D = {
     txt: ['Two students：Energy student — learns to evaluate cheaply；Policy student — the VLA — learns to act without the evaluator',
       '闭环（14 / 15 / 16 / 21 / 28 s）：1 VLA proposal — the current policy → 2 Teacher correction — guided by the energy → 3 Execute & observe — keep only verified corrections → 4 Update the VLA — native objective + old-skill replay → 5 Test, guidance off — held-out starts · no T（虚线返回：next round）',
       '21.5 s：PROPOSED — TRAINING ALGORITHM NOT FIXED；公式 π_φk → π_φk+1；data: execution-verified corrections + replay of old skills',
-      '30 s 分屏：Teacher off: before vs. after adaptation；Before adaptation — teacher off · held-out start；After adaptation — teacher off · the same held-out start；RIGHT: TARGET BEHAVIOUR — A HYPOTHESIS, NOT A RESULT',
+      '30 s 分屏：Teacher off: before vs. after adaptation；Before adaptation — teacher off · held-out start；After adaptation — teacher off · the same held-out start',
       '条件标签：Held-out condition 1 · a higher barrier → Held-out condition 2 · grip near one end；3D 标签：collision',
       '58 s：Making the correction cheaper is not enough. / The policy must learn to need it less.']
   },
@@ -133,9 +136,8 @@ const D = {
   },
   appendix: {
     act: ['纯图示（3D 在背板后）。'],
-    txt: ['0–24 s 五类方法对比表（ALREADY GOOD AT / WHAT WE WANT TO ADD — TO BE TESTED）：Motion planning (cuRobo) · MPC / model-based RL (TD-MPC2) · Fine-tuning the VLA (π0.5) · Inference-time guidance (OmniGuide · DynaGuide) · Amortized guidance (AGF)',
-      '16 s：Not new: an optimizer that guides a policy which then acts alone — Guided Policy Search (Levine & Koltun, ICML 2013).',
-      '24 s 四张文献数字卡（各自口径）：63 ms（π0.5 per 50-action chunk; WAMs 4.8–83× per inference, model/config dependent）· 16 s / action（800 samples, 10 iterations, horizon 1, RTX 4090）· 92% → 41%（perfect predictor, fixed 5-step rollout, 5 → 20 steps）· 62%（least-restrictive filter baseline, open-bag lifting: safe ≠ progress）',
+    txt: ['标题：Appendix: prior numbers and their scope',
+      '四张文献数字卡（各自口径）：63 ms（π0.5 per 50-action chunk; evaluated WAMs 4.8–83× slower per inference, model and config dependent）· 16 s / action（V-JEPA 2-AC CEM: 800 samples, 10 iterations, horizon 1, one RTX 4090）· 92% → 41%（perfect predictor, fixed 5-step rollout, goal 5 → 20 steps away）· 62%（least-restrictive filter baseline stalled, open-bag lifting: safe is not the same as progress — LatentCBF, arXiv 2511.18606, Tab. 2）',
       'Different tasks and protocols — not one comparison.']
   }
 };

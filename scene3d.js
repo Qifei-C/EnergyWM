@@ -290,7 +290,7 @@
     buildLights() {
       this.scene.add(new THREE.HemisphereLight(0xc8d6ea, 0x1a1612, 0.18));
       const key = new THREE.DirectionalLight(0xfff1e0, 1.7); key.position.set(-1.0, -2.0, 3.2); key.castShadow = true;
-      key.shadow.mapSize.set(2048, 2048); key.shadow.camera.near = 0.5; key.shadow.camera.far = 9;
+      const sm = ((typeof window !== 'undefined' && window.MG_RENDER_OPTS) || {}).shadow || 2048; key.shadow.mapSize.set(sm, sm); // capture may use 1024 key.shadow.camera.near = 0.5; key.shadow.camera.far = 9;
       key.shadow.camera.left = -2.0; key.shadow.camera.right = 2.0; key.shadow.camera.top = 2.0; key.shadow.camera.bottom = -2.0; key.shadow.bias = -0.0008;
       key.target.position.set(0.3, 0.2, 0.9);
       this.scene.add(key); this.scene.add(key.target);
@@ -887,7 +887,7 @@
             const fL = u > t0[1] ? fade(u, t0[1], t0[1] + 0.15, t0[1] + 1.6, t0[1] + 3) : 0;
             const ringPos = fieldToWorld(WORLD.barrierX0, pL[1] - 0.01); ringPos.y = Y_TASK - 0.09;
             if (fL > 0) { const px = proj2(ringPos.clone().add(new THREE.Vector3(-0.07, 0, 0.09)), 0); if (px) this.label(null, 'collision', LC.red, { px, size: 28, weight: 700, align: 'right', alpha: fL }); }
-            // right: after adaptation, teacher off — the target behaviour (hypothesis)
+            // right: after adaptation, teacher off — the target behaviour
             const ex = c2 ? this.arcAt(sramp(u, t0[0], t0[2])) : this.arcAt(sramp(u, t0[0], t0[2]), this.qArcHi, this.trajArcHi);
             this.halves = [
               { apply: () => { this.setRobot(qL, 0.018, pL, { dx: off }); this.ring.visible = fL > 0; if (fL > 0) { this.ring.position.copy(ringPos); this.ring.rotation.set(Math.PI / 2, 0, 0); const sc = 1 + (u - t0[1]) * 0.7; this.ring.scale.set(sc, sc, sc); this.ring.material.opacity = fL; } } },

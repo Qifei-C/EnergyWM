@@ -646,7 +646,7 @@
   const SCENES = [
     { id: 'title', name: 'Title', dur: 10 },
     { id: 'gap', name: 'Skills, not the combination', dur: 58 },
-    { id: 'tools', name: 'Where extra reasoning helps — and what it costs', dur: 56 },
+    { id: 'tools', name: 'Where extra reasoning helps — and what it costs', dur: 106 },
     { id: 'thesis', name: 'The bet', dur: 36 },
     { id: 'guide', name: 'Guidance: geometry and consequences', dur: 60 },
     { id: 'geom', name: 'The geometry part of the teacher', dur: 36 },
@@ -659,7 +659,7 @@
     { id: 'levels', name: 'Four levels — and the Level 3 test', dur: 56 },
     { id: 'notclaims', name: 'What we do not claim', dur: 20 },
     { id: 'end', name: 'The proposition', dur: 30 },
-    { id: 'appendix', name: 'Appendix: related work and prior numbers', dur: 46 }
+    { id: 'appendix', name: 'Appendix: prior numbers and their scope', dur: 22 }
   ];
   let acc = 0; for (const s of SCENES) { s.start = acc; acc += s.dur; }
   const DUR = acc;
@@ -667,7 +667,7 @@
   // Beat timings (scene-local seconds) shared by the overlay and the 3D layer.
   const TL = {
     gap: { skills: [1.5, 13], chips: [3, 4.5, 7, 10, 12], combo: 16, comboChips: [16.5, 19, 21.5, 24], fail: [30, 33], why: 37, vls: 46, lift: 52 },
-    tools: { vla: [3, 6], cem: [[8, 11], [11, 14], [14, 17]], step1: [17, 19], cem2: [[19, 22], [22, 25]], step2: [25, 27], cards: 28, stat: 36, table: 44 },
+    tools: { vla: [3, 6], cem: [[8, 11], [11, 14], [14, 17]], step1: [17, 19], cem2: [[19, 22], [22, 25]], step2: [25, 27], cards: 28, wam: 35, stat: 42, table: 50, fam: 64, gps: 88, question: 96 },
     guide: { pipe: 20, geo: 27, cons: 34, sum: 41, upd: 48 },
     geom: { ghost: [2, 3.5], a1: [3.5, 5], a2: [5, 6.5], a3: [8, 9.5], T: 14, cut: [14.8, 20.5], quiver: [21, 22], grad: [21.5, 22.7], prop: 23, corr: 25, exec: [27, 32] },
     direct: { keep: 8, lift: 10, ease: 12, bend: [16, 20], eq: 14, dagger: 21 },
@@ -675,7 +675,7 @@
     policy: { split: 30, c1: [31.5, 34, 37.5], c2: 44, c2m: [45.5, 48, 51.5], line: 58 },
     invest: { A: 8, B: 15, C: 22, measure: 28 },
     levels: { test: 30, rows: 38, limit: 52 },
-    appendix: { gps: 16, nums: 24 }
+    appendix: {}
   };
   // shared timing of the denoising loop (2D τ bar and 3D chunk agree)
   function guideTau(u) { const loopT = 12, uu = u % loopT; return clamp(uu / 8.5, 0, 1); }
@@ -768,7 +768,13 @@
   // =====================================================================
   function sceneTools(ctx, u) {
     const T = TL.tools;
+    const rowsYN = (x, y, items, t0) => items.forEach(([k, s], i) => {
+      ctx.save(); ctx.globalAlpha *= ramp(u, t0 + i * 1.2, t0 + i * 1.2 + 0.5);
+      mark(ctx, k, x + 16, y + i * 50 - 9, 14); text(ctx, s, x + 44, y + i * 50, { size: 24, color: C.ink });
+      ctx.restore();
+    });
     if (u < T.table) {
+      // ---- A: the same new combination, two ways to act (3D split behind) ----
       const dim = 1 - 0.85 * ramp(u, T.stat, T.stat + 0.6);
       topWash(ctx, 300, 0.94);
       heading(ctx, 'Where extra reasoning helps — and what it costs', 100, 150, 42, ramp(u, 0, 0.8));
@@ -782,22 +788,21 @@
         haloText(ctx, sub, x + 80, 262, { size: 18, color: C.mute });
         ctx.restore();
       });
-      const rows = (x, y, items, t0) => items.forEach(([k, s], i) => {
-        ctx.save(); ctx.globalAlpha *= ramp(u, t0 + i * 1.2, t0 + i * 1.2 + 0.5);
-        mark(ctx, k, x + 16, y + i * 50 - 9, 14); text(ctx, s, x + 44, y + i * 50, { size: 24, color: C.ink });
-        ctx.restore();
-      });
       if (u > T.cards) {
         ctx.save(); ctx.globalAlpha = dim; appear(ctx, ramp(u, T.cards, T.cards + 0.6));
         panelBox(ctx, 60, 640, 840, 230, { stroke: C.blue });
         text(ctx, '63 ms', 90, 698, { fam: SERIF, weight: 600, size: 48, color: C.blue });
         text(ctx, 'per 50-action chunk, π0.5 (reported)', 250, 696, { size: 18, color: C.mute });
-        rows(90, 760, [['yes', 'direct action-chunk generation'], ['no', 'no separate action–outcome evaluation loop']], T.cards + 0.3);
+        rowsYN(90, 760, [['yes', 'direct action-chunk generation'], ['no', 'no separate action–outcome evaluation loop']], T.cards + 0.8);
         text(ctx, 'Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', 90, 852, { size: 16, color: C.faint });
+        ctx.restore();
+      }
+      if (u > T.wam) {
+        ctx.save(); ctx.globalAlpha = dim; appear(ctx, ramp(u, T.wam, T.wam + 0.6));
         panelBox(ctx, 1020, 640, 840, 230, { stroke: C.violet });
         text(ctx, '16 s / action', 1050, 698, { fam: SERIF, weight: 600, size: 44, color: C.violet });
         text(ctx, '800 samples · 10 iterations · horizon 1 · one RTX 4090', 1340, 696, { size: 18, color: C.mute });
-        rows(1050, 760, [['yes', 'evaluates imagined outcomes'], ['no', 'pays for search at every step']], T.cards + 1);
+        rowsYN(1050, 760, [['yes', 'evaluates imagined outcomes'], ['no', 'pays for search at every step']], T.wam + 0.8);
         text(ctx, 'V-JEPA 2, arXiv 2506.09985, Tab. 3', 1050, 852, { size: 16, color: C.faint });
         ctx.restore();
       }
@@ -807,14 +812,65 @@
           'The Planning Limits of Latent World Models — Alrasheed, Azam, Akhtar, arXiv 2609.39235', { col: C.violet, bigSize: 88 });
         ctx.restore();
       }
-    } else {
+    } else if (u < T.fam) {
+      // ---- B: world action models are not one design ----
       wash(ctx, 0.96);
-      ctx.save(); appear(ctx, ramp(u, T.table + 0.3, T.table + 1.1));
-      tag(ctx, 'THE QUESTION', 160, 300, C.orangeDeep, { size: 18 });
-      paragraph(ctx, 'When a new constraint needs extra computation, can that computation become help we no longer need next time?', 160, 390, 1560, { fam: SERIF, weight: 600, size: 52, color: C.ink, lh: 70 });
+      heading(ctx, 'World action models are not one design', 100, 170, 48, ramp(u, T.table, T.table + 0.8));
+      const kinds = [
+        ['Imagine, score, then act', 'samples action sequences and scores their predicted outcomes', 'V-JEPA 2-AC with CEM — arXiv 2506.09985'],
+        ['Predict actions and futures together', 'generates actions directly, with future states and values; can also plan', 'Cosmos Policy — Kim et al., arXiv 2601.16163'],
+        ['Learn from video, act directly', 'video co-training, then no imagination at test time', 'Fast-WAM — Yuan et al., arXiv 2603.16666']
+      ];
+      kinds.forEach(([t, s, src], i) => {
+        const y = 300 + i * 150, a = ramp(u, T.table + 1 + i * 2.6, T.table + 1.7 + i * 2.6);
+        ctx.save(); appear(ctx, a, 10);
+        ctx.fillStyle = C.violet; rrect(ctx, 160, y - 34, 5, 108, 2); ctx.fill();
+        text(ctx, t, 192, y, { size: 34, weight: 600, color: C.ink });
+        text(ctx, s, 192, y + 42, { size: 24, color: C.mute });
+        text(ctx, src, 192, y + 74, { size: 17, color: C.faint });
+        ctx.restore();
+      });
+      ctx.save(); appear(ctx, ramp(u, T.table + 9, T.table + 9.8));
+      text(ctx, 'Latency also varies: the WAMs evaluated in one benchmark were 4.8× to 83× slower per inference than π0.5.', 160, 790, { size: 22, color: C.ink });
+      text(ctx, 'Model- and configuration-dependent — Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', 160, 824, { size: 17, color: C.faint });
       ctx.restore();
-      ctx.save(); ctx.globalAlpha = ramp(u, T.table + 0.5, T.table + 1.3);
-      text(ctx, 'World action models differ: Cosmos Policy also generates actions directly (arXiv 2601.16163); Fast-WAM skips test-time imagination (arXiv 2603.16666).', 160, 600, { size: 20, color: C.mute });
+    } else if (u < T.question) {
+      // ---- C: other tools already solve part of it; GPS is not new ----
+      wash(ctx, 0.96);
+      heading(ctx, 'Other tools already solve part of it', 100, 170, 48, ramp(u, T.fam, T.fam + 0.8));
+      const gpsDim = 1 - 0.6 * ramp(u, T.gps, T.gps + 0.6);
+      ctx.save(); ctx.globalAlpha = ramp(u, T.fam + 0.3, T.fam + 1) * gpsDim;
+      tag(ctx, 'ALREADY GOOD AT', 640, 252, C.faint); tag(ctx, 'WHAT WE WANT TO ADD', 1180, 252, C.orangeDeep);
+      ctx.restore();
+      const rows = [
+        ['Motion planning', 'cuRobo, arXiv 2310.17274', 'feasible motion for given geometry', 'language, vision, learned consequences'],
+        ['MPC / model-based RL', 'TD-MPC2, arXiv 2310.16828', 'optimizing on predicted outcomes', 'the VLA’s skill prior; less re-solving'],
+        ['Fine-tuning the VLA', 'π0.5, arXiv 2504.16054', 'writing data into the policy', 'targeted corrections, faster adaptation'],
+        ['Inference-time guidance', 'OmniGuide 2603.10052 · DynaGuide', 'better behaviour right now', 'cheap, composable, kept after switch-off'],
+        ['Amortized guidance', 'AGF, arXiv 2609.34944', 'a light net replaces the critic', 'structure: objects, contacts, physics']
+      ];
+      rows.forEach(([m, src, good, add], i) => {
+        const y = 278 + i * 104, a = ramp(u, T.fam + 0.8 + i * 3.2, T.fam + 1.4 + i * 3.2);
+        ctx.save(); ctx.globalAlpha = gpsDim; appear(ctx, a, 10);
+        panelBox(ctx, 100, y, 1720, 90, { r: 12 });
+        text(ctx, m, 128, y + 42, { size: 26, weight: 600, color: C.ink });
+        text(ctx, src, 128, y + 72, { size: 17, color: C.faint });
+        text(ctx, good, 640, y + 54, { size: 24, color: C.mute });
+        text(ctx, '+ ' + add, 1180, y + 54, { size: 24, weight: 500, color: C.orangeDeep });
+        ctx.restore();
+      });
+      if (u > T.gps) {
+        ctx.save(); appear(ctx, ramp(u, T.gps, T.gps + 0.6));
+        panelBox(ctx, 100, 812, 1720, 74, { stroke: C.orange, hot: true });
+        text(ctx, 'Not new: an optimizer that guides a policy which then acts alone — Guided Policy Search (Levine & Koltun, ICML 2013).', 128, 858, { size: 23, color: C.ink });
+        ctx.restore();
+      }
+    } else {
+      // ---- D: the question ----
+      wash(ctx, 0.96);
+      ctx.save(); appear(ctx, ramp(u, T.question + 0.3, T.question + 1.1));
+      tag(ctx, 'THE QUESTION', 160, 330, C.orangeDeep, { size: 18 });
+      paragraph(ctx, 'When a new constraint needs extra computation, can that computation become help we no longer need next time?', 160, 420, 1560, { fam: SERIF, weight: 600, size: 52, color: C.ink, lh: 70 });
       ctx.restore();
     }
     captions(ctx, u, [
@@ -822,10 +878,16 @@
       [7, 14, 'Illustrative failure: the direct policy repeats its habit into the barrier.'],
       [14, 21, 'The planner imagines outcomes, scores them, and takes one step.'],
       [21, 28, 'A short rollout scored by endpoint distance can miss the benefit of a detour.'],
-      [28, 36, 'One side has no separate outcome evaluation; the other pays for search.'],
-      [36, 44, 'Even a perfect predictor does not fix a short-sighted score.'],
-      [44, 50, 'World action models differ — some act directly, without test-time imagination.'],
-      [50, 56.2, 'The question: can extra reasoning become help we do not need next time?']
+      [28, 35, 'The direct policy is fast: one chunk of 50 actions in 63 ms, as reported.'],
+      [35, 42, 'The planner evaluates imagined outcomes — and pays for search at every step.'],
+      [42, 50, 'Even a perfect predictor does not fix a short-sighted score.'],
+      [50, 57, 'World action models are not one design.'],
+      [57, 64, 'Some generate actions directly; some skip imagination at test time.'],
+      [64, 72, 'Other tools already solve parts of the problem.'],
+      [72, 80, 'Planners, MPC, fine-tuning, guidance — each is good at something.'],
+      [80, 88, 'What we want to add: reuse the VLA’s skills, and keep the lesson.'],
+      [88, 96, 'Teacher-guided policy learning itself is not new: Guided Policy Search.'],
+      [96, 106.2, 'The question: can extra reasoning become help we do not need next time?']
     ]);
   }
 
@@ -853,15 +915,11 @@
       if (i < 3) arrow(ctx, x + 366, y + 65, x + 414, y + 65, { color: C.faint, width: 3, head: 12 });
       ctx.restore();
     });
-    ctx.save(); appear(ctx, ramp(u, 27, 27.8));
-    ctx.fillStyle = C.orange; ctx.fillRect(150, 712, 60, 3);
-    spaced(ctx, 'HYPOTHESIS  ·  TO BE ESTABLISHED BY EXPERIMENT', 150, 752, { size: 18, weight: 600, color: C.orangeDeep, spacing: 2.6 });
-    ctx.restore();
     captions(ctx, u, [
       [0, 9, 'The first time a problem appears, prediction makes up for missing experience.'],
       [9, 18, 'When it comes back: turn that expensive reasoning into a cheap skill.'],
       [18, 27, 'Skills → corrected in a new situation → the VLA is updated → acting alone.'],
-      [27, 36.2, 'These are advantages we hope to establish — not results we have.']
+      [27, 36.2, 'Existing skills, a predictive correction, fast adaptation — then acting alone.']
     ]);
   }
 
@@ -1180,9 +1238,6 @@
       });
       const cond = u < P.c2 ? 'Held-out condition 1 · a higher barrier' : 'Held-out condition 2 · grip near one end';
       haloText(ctx, cond, 960, 312, { size: 24, weight: 600, color: C.orangeDeep, align: 'center', alpha: u < P.c2 ? ramp(u, P.split + 0.5, P.split + 1.2) : ramp(u, P.c2, P.c2 + 0.7) });
-      ctx.save(); ctx.globalAlpha = ramp(u, P.split + 1, P.split + 2);
-      spaced(ctx, 'RIGHT: TARGET BEHAVIOUR — A HYPOTHESIS, NOT A RESULT', 1100, 150, { size: 15, weight: 600, color: C.green, spacing: 1.8 });
-      ctx.restore();
     } else {
       wash(ctx, 0.97);
       ctx.save(); appear(ctx, ramp(u, P.line + 0.3, P.line + 1.2));
@@ -1200,7 +1255,7 @@
       [28, 36, 'Then test with all guidance off, from starts never used in adaptation.'],
       [36, 44, 'Left: before adaptation. Right: after. Same held-out start, no teacher.'],
       [44, 52, 'A second held-out condition: the grip is near one end of the banana.'],
-      [52, 58, 'Target behaviour — a hypothesis to test, not a result.'],
+      [52, 58, 'Both run without the teacher; only the VLA’s weights differ.'],
       [58, 65, 'Making the correction cheaper is not enough.'],
       [65, 72.2, 'The policy must learn to need it less.']
     ]);
@@ -1371,60 +1426,26 @@
   // 16 — Appendix: related work and prior numbers
   // =====================================================================
   function sceneAppendix(ctx, u) {
-    const A = TL.appendix;
     wash(ctx, 0.97);
-    heading(ctx, 'Appendix: related work and prior numbers', 100, 170, 48, ramp(u, 0, 0.8));
-    if (u < A.nums) {
-      const fo = 1 - ramp(u, A.nums - 0.6, A.nums);
-      ctx.save(); ctx.globalAlpha = ramp(u, 0.3, 1) * fo;
-      tag(ctx, 'ALREADY GOOD AT', 640, 252, C.faint); tag(ctx, 'WHAT WE WANT TO ADD — TO BE TESTED', 1180, 252, C.orangeDeep);
+    heading(ctx, 'Appendix: prior numbers and their scope', 100, 170, 48, ramp(u, 0, 0.8));
+    const cards = [
+      ['63 ms', 'π0.5, per 50-action chunk; evaluated WAMs 4.8–83× slower per inference (model and config dependent)', 'Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', C.blue],
+      ['16 s / action', 'V-JEPA 2-AC CEM planning: 800 samples, 10 iterations, horizon 1, one RTX 4090', 'V-JEPA 2, arXiv 2506.09985, Tab. 3', C.violet],
+      ['92% → 41%', 'perfect predictor, fixed 5-step rollout, goal 5 → 20 steps away', 'The Planning Limits of Latent World Models, arXiv 2609.39235', C.violet],
+      ['62%', 'least-restrictive filter baseline stalled (open-bag lifting): safe is not the same as progress', 'LatentCBF, arXiv 2511.18606, Tab. 2', C.red]
+    ];
+    cards.forEach(([big, lab, src, col], i) => {
+      const x = 100 + (i % 2) * 880, y = 230 + Math.floor(i / 2) * 300;
+      ctx.save(); appear(ctx, ramp(u, 0.6 + i * 0.8, 1.3 + i * 0.8));
+      statCard(ctx, x, y, 840, 270, big, lab, src, { col, bigSize: 58, lsize: 22 });
       ctx.restore();
-      const rows = [
-        ['Motion planning', 'cuRobo, arXiv 2310.17274', 'feasible motion for given geometry', 'language, vision, learned consequences'],
-        ['MPC / model-based RL', 'TD-MPC2, arXiv 2310.16828', 'optimizing on predicted outcomes', 'the VLA’s skill prior; less re-solving'],
-        ['Fine-tuning the VLA', 'π0.5, arXiv 2504.16054', 'writing data into the policy', 'targeted corrections, faster adaptation'],
-        ['Inference-time guidance', 'OmniGuide 2603.10052 · DynaGuide', 'better behaviour right now', 'cheap, composable, kept after switch-off'],
-        ['Amortized guidance', 'AGF, arXiv 2609.34944', 'a light net replaces the critic', 'structure: objects, contacts, physics']
-      ];
-      rows.forEach(([m, src, good, add], i) => {
-        const y = 278 + i * 104;
-        ctx.save(); ctx.globalAlpha = fo; appear(ctx, ramp(u, 0.6 + i * 1.2, 1.2 + i * 1.2), 10);
-        panelBox(ctx, 100, y, 1720, 90, { r: 12 });
-        text(ctx, m, 128, y + 42, { size: 26, weight: 600, color: C.ink });
-        text(ctx, src, 128, y + 72, { size: 17, color: C.faint });
-        text(ctx, good, 640, y + 54, { size: 24, color: C.mute });
-        text(ctx, '+ ' + add, 1180, y + 54, { size: 24, weight: 500, color: C.orangeDeep });
-        ctx.restore();
-      });
-      if (u > A.gps) {
-        ctx.save(); ctx.globalAlpha = fo; appear(ctx, ramp(u, A.gps, A.gps + 0.6));
-        panelBox(ctx, 100, 812, 1720, 74, { stroke: C.orange, hot: true });
-        text(ctx, 'Not new: an optimizer that guides a policy which then acts alone — Guided Policy Search (Levine & Koltun, ICML 2013).', 128, 858, { size: 23, color: C.ink });
-        ctx.restore();
-      }
-    } else {
-      const cards = [
-        ['63 ms', 'π0.5, per 50-action chunk; evaluated WAMs 4.8–83× slower per inference (model and config dependent)', 'Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', C.blue],
-        ['16 s / action', 'V-JEPA 2-AC CEM planning: 800 samples, 10 iterations, horizon 1, one RTX 4090', 'V-JEPA 2, arXiv 2506.09985, Tab. 3', C.violet],
-        ['92% → 41%', 'perfect predictor, fixed 5-step rollout, goal 5 → 20 steps away', 'The Planning Limits of Latent World Models, arXiv 2609.39235', C.violet],
-        ['62%', 'least-restrictive filter baseline stalled (open-bag lifting): safe is not the same as progress', 'LatentCBF, arXiv 2511.18606, Tab. 2', C.red]
-      ];
-      cards.forEach(([big, lab, src, col], i) => {
-        const x = 100 + (i % 2) * 880, y = 230 + Math.floor(i / 2) * 300;
-        ctx.save(); appear(ctx, ramp(u, A.nums + 0.3 + i * 0.8, A.nums + 1 + i * 0.8));
-        statCard(ctx, x, y, 840, 270, big, lab, src, { col, bigSize: 58, lsize: 22 });
-        ctx.restore();
-      });
-      ctx.save(); ctx.globalAlpha = ramp(u, A.nums + 4, A.nums + 5);
-      text(ctx, 'Different tasks and protocols — not one comparison.', 100, 860, { size: 22, color: C.mute });
-      ctx.restore();
-    }
+    });
+    ctx.save(); ctx.globalAlpha = ramp(u, 4.5, 5.5);
+    text(ctx, 'Different tasks and protocols — not one comparison.', 100, 860, { size: 22, color: C.mute });
+    ctx.restore();
     captions(ctx, u, [
-      [0, 8, 'Appendix: other tools already solve part of the problem.'],
-      [8, 16, 'Planners, MPC, fine-tuning and guidance — and what we want to add to each.'],
-      [16, 24, 'Teacher-guided policy learning itself is not new: Guided Policy Search.'],
-      [24, 34, 'Prior numbers, each from its own task and protocol — not one comparison.'],
-      [34, 46.2, 'They motivate the questions; none of them is a result of this plan.']
+      [0, 10, 'Prior numbers, each from its own task and protocol — not one comparison.'],
+      [10, 22.2, 'They motivate the questions this plan asks.']
     ]);
   }
 

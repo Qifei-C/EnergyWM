@@ -11,8 +11,8 @@
   const headless = params.get('headless') === '1';
   const assetBase = window.MG_ASSET_BASE != null ? window.MG_ASSET_BASE : 'assets/';
   if (headless) document.documentElement.classList.add('headless');
-  // capture options: aa=0 (no MSAA), scale=<3D internal resolution>, out=720 (composite size), q3d=1 (3D at 2 fps behind diagrams)
-  window.MG_RENDER_OPTS = { aa: params.get('aa') !== '0', scale: params.get('scale') ? +params.get('scale') : 1, outH: +(params.get('out') || 1080), q3d: params.get('q3d') === '1' };
+  // capture options: aa=0 (no MSAA), scale=<3D internal resolution>, out=720 (composite size), q3d=1 (3D at 2 fps behind diagrams), shadow=1024 (shadow map size)
+  window.MG_RENDER_OPTS = { aa: params.get('aa') !== '0', scale: params.get('scale') ? +params.get('scale') : 1, outH: +(params.get('out') || 1080), q3d: params.get('q3d') === '1', shadow: +(params.get('shadow') || 2048) };
 
   const gl = document.getElementById('gl'), prev = document.getElementById('glprev'), ui = document.getElementById('ui');
   for (const c of [prev, ui]) { c.width = W; c.height = H; }
