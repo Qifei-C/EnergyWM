@@ -1,6 +1,7 @@
 // Render the film to MP4: headless Chromium (SwiftShader) → window.__frame(t) JPEGs → ffmpeg, one file per chapter,
 // then concat (-c copy). Resumable: finished chapter files are skipped. Temp names are renamed on success.
 // Usage: node scripts/render_mp4.js [--workers 3] [--crf 20] [--preset veryfast] [--out out] [--name energywm_v1] [--scenes 1,2]
+//        [--channel chrome] [--gpu]   (system Chrome instead of Playwright's Chromium; hardware WebGL instead of SwiftShader)
 const { chromium } = require('playwright');
 const { spawn, execFileSync } = require('child_process');
 const http = require('http'), fs = require('fs'), path = require('path');
@@ -9,6 +10,9 @@ const argv = process.argv.slice(2), opt = (k, d) => { const i = argv.indexOf(k);
 const WORKERS = +opt('--workers', 3), CRF = opt('--crf', '20'), PRESET = opt('--preset', 'veryfast'), FPS = 30, Q = +opt('--quality', 0.92);
 const OUT = path.resolve(ROOT, opt('--out', 'out')), NAME = opt('--name', 'energywm_v1'), ONLY = opt('--scenes', null);
 const PAGEQ = opt('--page', 'aa=0&scale=0.75&out=1080&shadow=1024'); // capture options passed to render.html
+const CHANNEL = opt('--channel', undefined);
+const LAUNCH_ARGS = argv.includes('--gpu') ? ['--ignore-gpu-blocklist', '--enable-gpu']
+  : ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'];
 const core = require(path.join(ROOT, 'core.js'));
 fs.mkdirSync(OUT, { recursive: true });
 const log = (...a) => { const s = `[${new Date().toISOString().slice(11, 19)}] ` + a.join(' '); console.log(s); fs.appendFileSync(path.join(OUT, 'render.log'), s + '\n'); };
@@ -29,6 +33,8 @@ async function renderScene(page, s) {
   const final = fileOf(s), tmp = final.replace(/\.mp4$/, '.tmp.mp4');
   if (fs.existsSync(final)) { log(`skip ${path.basename(final)} (exists)`); return; }
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-c:v', 'mjpeg', '-framerate', String(FPS), '-i', '-',
+    // JPEG frames are full-range BT.601; convert to the limited-range BT.709 that players assume for HD video
+    '-vf', 'scale=out_range=tv:out_color_matrix=bt709,setparams=range=tv:colorspace=bt709:color_primaries=bt709:color_trc=bt709',
     '-c:v', 'libx264', '-preset', PRESET, '-crf', CRF, '-pix_fmt', 'yuv420p', '-r', String(FPS), '-movflags', '+faststart', tmp], { stdio: ['pipe', 'inherit', 'inherit'] });
   const done = new Promise((res, rej) => ff.on('close', c => c === 0 ? res() : rej(new Error('ffmpeg exit ' + c))));
   const t0 = Date.now();
@@ -53,7 +59,7 @@ async function renderScene(page, s) {
   log(`page options: ${PAGEQ}`); log(`rendering ${scenes.length} chapters, ${scenes.reduce((a, s) => a + s.frames, 0)} frames, ${WORKERS} workers`);
   await Promise.all(groups.map(async (g, wi) => {
     if (!g.list.length) return;
-    const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-dev-shm-usage'] });
+    const browser = await chromium.launch({ channel: CHANNEL, args: LAUNCH_ARGS });
     const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
     page.on('pageerror', e => log(`[w${wi}] pageerror ${e.message}`));
     await page.goto(`http://localhost:${port}/render.html?headless=1&${PAGEQ}`);
