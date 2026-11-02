@@ -19,7 +19,7 @@ const tc = s => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r
 const D = {
   title: {
     act: ['广角厨房镜头缓慢推移；机械臂轻微待机摆动；切片平面上淡入青色 T 等值线。'],
-    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.']
+    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.', '作者：Qifei C.']
   },
   gap: {
     act: ['0–16 s 无挡板的开放布局：从台面抓起香蕉、抬起、低弧线搬运、放进碗、松开。',
@@ -125,17 +125,18 @@ const D = {
       '52 s：LIMIT — The student must observe what decides the right action.']
   },
   notclaims: {
-    act: ['纯图示（3D 在背板后）。左栏先出（0–14 s），右栏后出（14–21 s），23.5 s 底部一行。'],
-    txt: ['标题：What is new here — and what is not',
-      '左栏 BUILDING BLOCKS WE REUSE：Geometric fields — SDFs and eikonal distance are standard tools · Action-conditioned world models — existing predictors — the question is how well they teach · Planners and best-of-N — kept as baselines: success, cost, adaptation speed',
-      '右栏 WHAT IS NEW：Correct the VLA’s own chunk — one energy from geometry and predicted consequences · Learn from the corrections — verified in execution, replayed with old skills · Judge it with the teacher off — held-out starts, equal adaptation budget',
-      '23.5 s：Ablations separate what geometry alone gives from what predicted consequences add.']
+    act: ['纯图示（3D 在背板后）。四行，每 7 s 一行：左边先出（我们基于什么），箭头，右边再出（由此得到什么）。'],
+    txt: ['标题：What we build on — and what it gives us；列头 WE BUILD ON / WHAT WE GAIN',
+      '1 Geometric fields — SDF and a numerically computed progress field T → A progress signal for any layout — recomputed when the scene changes — no retraining',
+      '2 An action-conditioned world model — trained readouts: grip, slip, contact → Consequences geometry cannot see — same path, different speed — told apart',
+      '3 The VLA’s own skills — its proposal and its denoising steps → Corrections close to what it already does — a gradient on its own chunk, not a new path',
+      '4 Execution-verified corrections — replayed together with old skills → A VLA that needs the teacher less — checked with all guidance off, from held-out starts']
   },
   end: {
     act: ['纯图示（3D 在背板后）。'],
     txt: ['THE PROPOSITION — STATED SO THAT IT CAN FAIL',
       'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations with fewer new demonstrations or interactions — and keep that ability once guidance is removed?',
-      '1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher', '20 s：Not a smarter planner carried forever — a teacher the robot outgrows.', '25 s：引用列表与素材致谢']
+      '1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher', '20 s：Not a smarter planner carried forever — a teacher the robot outgrows.', '25 s：作者 Qifei C.、引用列表与素材致谢']
   },
   appendix: {
     act: ['纯图示（3D 在背板后）。'],

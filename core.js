@@ -658,7 +658,7 @@
     { id: 'policy', name: 'Policy student: learning to need it less', dur: 72 },
     { id: 'invest', name: 'Deployment states', dur: 34 },
     { id: 'levels', name: 'Four levels — and the Level 3 test', dur: 56 },
-    { id: 'notclaims', name: 'What is new — and what is not', dur: 28 },
+    { id: 'notclaims', name: 'What we build on — and what it gives us', dur: 35 },
     { id: 'end', name: 'The proposition', dur: 30 },
     { id: 'appendix', name: 'Appendix: prior numbers and their scope', dur: 22 }
   ];
@@ -699,6 +699,7 @@
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 3.2, 4.2);
     ctx.fillStyle = C.orange; ctx.fillRect(150, 730, 120, 4);
+    text(ctx, 'Qifei C.', 150, 792, { size: 30, weight: 600, color: C.ink });
     ctx.restore();
   }
 
@@ -1367,37 +1368,38 @@
   // =====================================================================
   function sceneNotClaims(ctx, u) {
     wash(ctx, 0.95);
-    heading(ctx, 'What is new here — and what is not', 100, 170, 48, ramp(u, 0, 0.8));
-    const col = (x, tagTxt, tagCol, barCol, items, ta) => {
-      ctx.save(); ctx.globalAlpha = ramp(u, ta, ta + 0.6); tag(ctx, tagTxt, x, 272, tagCol); ctx.restore();
-      items.forEach(([t, sub, t0], i) => {
-        const y = 340 + i * 140;
-        ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.7), 10);
-        ctx.fillStyle = barCol; rrect(ctx, x, y - 34, 5, 96, 2); ctx.fill();
-        text(ctx, t, x + 30, y, { size: 31, weight: 600, color: C.ink });
-        text(ctx, sub, x + 30, y + 42, { size: 21, color: C.mute });
-        ctx.restore();
-      });
-    };
-    col(100, 'BUILDING BLOCKS WE REUSE', C.faint, C.line, [
-      ['Geometric fields', 'SDFs and eikonal distance are standard tools', 0.8],
-      ['Action-conditioned world models', 'existing predictors — the question is how well they teach', 3.2],
-      ['Planners and best-of-N', 'kept as baselines: success, cost, adaptation speed', 7.5]
-    ], 0.4);
-    col(1000, 'WHAT IS NEW', C.orangeDeep, C.orange, [
-      ['Correct the VLA’s own chunk', 'one energy from geometry and predicted consequences', 14.3],
-      ['Learn from the corrections', 'verified in execution, replayed with old skills', 17.5],
-      ['Judge it with the teacher off', 'held-out starts, equal adaptation budget', 21.2]
-    ], 14);
-    ctx.save(); appear(ctx, ramp(u, 23.5, 24.3));
-    ctx.fillStyle = C.orange; ctx.fillRect(100, 790, 60, 3);
-    text(ctx, 'Ablations separate what geometry alone gives from what predicted consequences add.', 100, 836, { size: 25, color: C.ink });
+    heading(ctx, 'What we build on — and what it gives us', 100, 170, 48, ramp(u, 0, 0.8));
+    ctx.save(); ctx.globalAlpha = ramp(u, 0.4, 1.0);
+    tag(ctx, 'WE BUILD ON', 100, 262, C.tealDeep); tag(ctx, 'WHAT WE GAIN', 1000, 262, C.orangeDeep);
     ctx.restore();
+    const rows = [
+      ['Geometric fields', 'SDF and a numerically computed progress field T', 'A progress signal for any layout', 'recomputed when the scene changes — no retraining'],
+      ['An action-conditioned world model', 'trained readouts: grip, slip, contact', 'Consequences geometry cannot see', 'same path, different speed — told apart'],
+      ['The VLA’s own skills', 'its proposal and its denoising steps', 'Corrections close to what it already does', 'a gradient on its own chunk, not a new path'],
+      ['Execution-verified corrections', 'replayed together with old skills', 'A VLA that needs the teacher less', 'checked with all guidance off, from held-out starts']
+    ];
+    rows.forEach(([l, ls, r, rs], i) => {
+      const y = 330 + i * 140, t0 = 1 + i * 7;
+      ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.7), 10);
+      ctx.fillStyle = C.teal; rrect(ctx, 100, y - 34, 5, 96, 2); ctx.fill();
+      text(ctx, l, 130, y, { size: 30, weight: 600, color: C.ink });
+      text(ctx, ls, 130, y + 42, { size: 21, color: C.mute });
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = ramp(u, t0 + 1.6, t0 + 2.2);
+      arrow(ctx, 860, y + 6, 950, y + 6, { color: C.faint, width: 3, head: 12 });
+      ctx.restore();
+      ctx.save(); appear(ctx, ramp(u, t0 + 2.2, t0 + 2.9), 10);
+      ctx.fillStyle = C.orange; rrect(ctx, 1000, y - 34, 5, 96, 2); ctx.fill();
+      text(ctx, r, 1030, y, { size: 30, weight: 600, color: C.ink });
+      text(ctx, rs, 1030, y + 42, { size: 21, color: C.mute });
+      ctx.restore();
+    });
     captions(ctx, u, [
-      [0, 7, 'Much of the toolbox already exists: geometric fields, world models, planners.'],
-      [7, 14, 'We reuse them, and keep planners and best-of-N as baselines.'],
-      [14, 21, 'What is new: the teacher corrects the VLA’s own chunk, and the VLA learns from it.'],
-      [21, 28.2, 'It is judged with the teacher off — and ablated to see what geometry alone gives.']
+      [0, 7, 'What we build on, and what each part gives us.'],
+      [7, 14, 'Geometric fields give a progress signal that is recomputed for any layout.'],
+      [14, 21, 'A world model adds the consequences geometry cannot see: slip, contact, timing.'],
+      [21, 28, 'Correcting the VLA’s own chunk keeps it close to the skills it already has.'],
+      [28, 35.2, 'Learning from verified corrections, the VLA needs the teacher less.']
     ]);
   }
 
@@ -1423,6 +1425,7 @@
     text(ctx, 'Not a smarter planner carried forever — a teacher the robot outgrows.', 960, 740, { fam: SERIF, weight: 600, size: 38, color: C.orangeDeep, align: 'center' });
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 25, 26);
+    text(ctx, 'Qifei C.', 160, 826, { size: 24, weight: 600, color: C.ink });
     text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2601.16163 · 2603.16666 · 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011', 160, 866, { size: 16, color: C.faint });
     text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 894, { size: 16, color: C.faint });
     ctx.restore();
