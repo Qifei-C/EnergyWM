@@ -286,32 +286,88 @@
       linObject(this.scene);
       for (const p of [this.plane, this.topPlane]) { p.material.toneMapped = false; p.material.map.encoding = THREE.sRGBEncoding; p.material.fog = false; }
       for (const m of [this.ring.material, this.halo.material]) { m.toneMapped = false; m.fog = false; }
+      // "new kitchen" look: per-mesh colour swaps (linear), light and background changes, clutter
+      this.looks = []; this.scene.traverse(o => { if (o.isMesh && o.userData.look != null) this.looks.push({ m: o.material, base: o.material.color.clone(), real: new THREE.Color(o.userData.look).convertSRGBToLinear() }); });
+      this.lookState = 0;
+      // geometry view: every model drawn as surface normals (world/robot frame) on a 5 cm metric grid; textures are
+      // dropped, so the view is the same whatever the textures, lights or clutter
+      this.geo = 0;
+      this.geoMat = new THREE.ShaderMaterial({
+        uniforms: { opacity: { value: 0 }, fIn: { value: 8 }, fOut: { value: -8 } },
+        vertexShader: 'varying vec3 vW; varying vec3 vN; void main() { vW = (modelMatrix * vec4(position, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * normal); vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition; }', // same depth as three.js materials
+        fragmentShader: [
+          'uniform float opacity; uniform float fIn; uniform float fOut; varying vec3 vW; varying vec3 vN;',
+          'float gl1(float v, float s) { float f = v / s; float d = abs(fract(f - 0.5) - 0.5); float w = max(fwidth(f), 1e-3); return (1.0 - smoothstep(0.0, w * 1.5, d)) * (1.0 - smoothstep(0.10, 0.30, w)); }',
+          'void main() {',
+          // cut in / cut out: a scan front sweeping along world x (left → right on screen) turns the scene into geometry and back
+          '  if (vW.x > fIn || vW.x < fOut) discard;',
+          // surface normal in the world (robot) frame → classic normal-map colours, slightly toned for the dark film
+          '  vec3 n = normalize(vN);',
+          // world-anchored, but mapped like a familiar normal pass seen from the front: x → red, up → green, toward the viewer (−y) → blue
+          '  vec3 c = vec3(n.x, n.z, -n.y) * 0.5 + 0.5;',
+          '  c = mix(vec3(0.06, 0.08, 0.12), c, 0.82);',
+          // a metric grid (5 cm) laid over every surface, fading where it would alias
+          '  float g = max(max(gl1(vW.x, 0.05), gl1(vW.y, 0.05)), gl1(vW.z, 0.05));',
+          '  c *= 1.0 - 0.5 * g;',
+          '  float edge = max(exp(-abs(vW.x - fIn) / 0.012), exp(-abs(vW.x - fOut) / 0.012));',
+          '  c = mix(c, vec3(0.80, 1.0, 0.96), 0.9 * edge);',
+          '  gl_FragColor = vec4(c, opacity);',
+          '}'].join('\n'),
+        transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, extensions: { derivatives: true }
+      });
+      this.camera3 = new THREE.PerspectiveCamera(36, 8 / 9, 0.05, 40); this.camera3.up.set(0, 0, 1);
+    }
+    setLook(r) {
+      if (this.lookState === r) return; this.lookState = r;
+      for (const L of this.looks) L.m.color.copy(r ? L.real : L.base);
+      this.keyLight.color.setHex(r ? 0xffdcae : 0xfff1e0); this.keyLight.intensity = r ? 2.0 : 1.7;
+      this.hemi.intensity = r ? 0.45 : 0.18; this.rimLight.intensity = r ? 0.45 : 0.7;
+      this.scene.background.setHex(r ? 0x2b2722 : BG); this.scene.fog.color.setHex(r ? 0x2b2722 : BG);
+      this.clutter.visible = !!r;
+    }
+    // sim-to-real chapter: scan fronts along world x — cut into the geometry view, then cut out at the end of the part
+    scanGeo(u, S) {
+      const a = S.geo, b = S.geoOut, d = 1.8, x0 = -0.8, x1 = 1.6; // the visible part of the kitchen
+      if (u < a || u > b + d) { this.geo = 0; return; }
+      this.geo = 1;
+      this.geoIn = u < a + d ? lerp(x0, x1, sramp(u, a, a + d)) : 8;
+      this.geoOut = u < b ? -8 : lerp(x0, x1, sramp(u, b, b + d));
+    }
+    renderGeo(cam) {
+      if (!(this.geo > 0.001)) return;
+      const r = this.renderer, S = this.scene, ov = this.ov.visible, pv = this.plane.visible, tv = this.topPlane.visible, bg = S.background;
+      this.ov.visible = false; this.plane.visible = false; this.topPlane.visible = false; S.background = null;
+      S.overrideMaterial = this.geoMat; const U = this.geoMat.uniforms; U.opacity.value = this.geo; U.fIn.value = this.geoIn == null ? 8 : this.geoIn; U.fOut.value = this.geoOut == null ? -8 : this.geoOut;
+      const au = r.autoClear, su = r.shadowMap.autoUpdate; r.autoClear = false; r.shadowMap.autoUpdate = false;
+      r.render(S, cam);
+      r.autoClear = au; r.shadowMap.autoUpdate = su; S.overrideMaterial = null; S.background = bg;
+      this.ov.visible = ov; this.plane.visible = pv; this.topPlane.visible = tv;
     }
     buildLights() {
-      this.scene.add(new THREE.HemisphereLight(0xc8d6ea, 0x1a1612, 0.18));
+      this.hemi = new THREE.HemisphereLight(0xc8d6ea, 0x1a1612, 0.18); this.scene.add(this.hemi);
       const key = new THREE.DirectionalLight(0xfff1e0, 1.7); key.position.set(-1.0, -2.0, 3.2); key.castShadow = true;
-      const sm = ((typeof window !== 'undefined' && window.MG_RENDER_OPTS) || {}).shadow || 2048; key.shadow.mapSize.set(sm, sm); // capture may use 1024 key.shadow.camera.near = 0.5; key.shadow.camera.far = 9;
+      const sm = ((typeof window !== 'undefined' && window.MG_RENDER_OPTS) || {}).shadow || 2048; key.shadow.mapSize.set(sm, sm); key.shadow.camera.near = 0.5; key.shadow.camera.far = 9; // capture may use a 1024 map
       key.shadow.camera.left = -2.0; key.shadow.camera.right = 2.0; key.shadow.camera.top = 2.0; key.shadow.camera.bottom = -2.0; key.shadow.bias = -0.0008;
       key.target.position.set(0.3, 0.2, 0.9);
-      this.scene.add(key); this.scene.add(key.target);
-      const rim = new THREE.DirectionalLight(0xbcd2ff, 0.7); rim.position.set(1.6, 2.6, 2.6); this.scene.add(rim);
+      this.scene.add(key); this.scene.add(key.target); this.keyLight = key;
+      const rim = new THREE.DirectionalLight(0xbcd2ff, 0.7); rim.position.set(1.6, 2.6, 2.6); this.scene.add(rim); this.rimLight = rim;
     }
     buildKitchen() {
       const K = new THREE.Group(); K.name = 'kitchen'; this.scene.add(K);
-      const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({ map: makeFloorTexture(), roughness: 0.7 })); floor.receiveShadow = true; K.add(floor);
-      const wall = box(6.0, 0.08, 2.7, COL.wall, { shadow: false, rough: 0.9 }); wall.position.set(0.5, 0.64, 1.35); K.add(wall);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(12, 12), new THREE.MeshStandardMaterial({ map: makeFloorTexture(), roughness: 0.7 })); floor.receiveShadow = true; floor.userData.look = 0x9a8a78; K.add(floor);
+      const wall = box(6.0, 0.08, 2.7, COL.wall, { shadow: false, rough: 0.9 }); wall.position.set(0.5, 0.64, 1.35); wall.userData.look = 0x9c9384; K.add(wall);
       const tiles = new THREE.Mesh(new THREE.PlaneGeometry(4.6, 0.56), new THREE.MeshStandardMaterial({ map: makeTileTexture(), roughness: 0.3 }));
-      tiles.rotation.x = Math.PI / 2; tiles.position.set(0.5, 0.598, COUNTER_Z + 0.30); K.add(tiles);
-      const cab = box(4.6, 0.58, 0.78, COL.cabinet, { rough: 0.6 }); cab.position.set(0.5, 0.31, 0.49); K.add(cab);
-      const toe = box(4.6, 0.52, 0.10, COL.toe, { shadow: false }); toe.position.set(0.5, 0.34, 0.05); K.add(toe);
+      tiles.rotation.x = Math.PI / 2; tiles.position.set(0.5, 0.598, COUNTER_Z + 0.30); tiles.userData.look = 0xe2d4bf; K.add(tiles);
+      const cab = box(4.6, 0.58, 0.78, COL.cabinet, { rough: 0.6 }); cab.position.set(0.5, 0.31, 0.49); cab.userData.look = 0x6a5240; K.add(cab);
+      const toe = box(4.6, 0.52, 0.10, COL.toe, { shadow: false }); toe.position.set(0.5, 0.34, 0.05); toe.userData.look = 0x3a2e24; K.add(toe);
       for (let i = 0; i < 7; i++) {
         const x = -1.6 + 0.3 + i * 0.6; if (x > 0.85 && x < 1.75) continue;
-        const door = box(0.57, 0.02, 0.68, COL.door, { rough: 0.45 }); door.position.set(x, 0.01, 0.46); K.add(door);
+        const door = box(0.57, 0.02, 0.68, COL.door, { rough: 0.45 }); door.position.set(x, 0.01, 0.46); door.userData.look = 0x7a5e48; K.add(door);
         const handle = box(0.18, 0.018, 0.018, COL.steel, { metal: 0.9, rough: 0.25 }); handle.position.set(x, -0.012, 0.74); K.add(handle);
       }
-      const top = new THREE.Mesh(new THREE.BoxGeometry(4.64, 0.62, 0.04), new THREE.MeshStandardMaterial({ map: makeCounterTexture(), roughness: 0.32 })); top.position.set(0.5, 0.31, COUNTER_Z - 0.02); top.receiveShadow = true; top.castShadow = true; K.add(top);
-      const upper = box(4.6, 0.34, 0.72, COL.upper, { rough: 0.6 }); upper.position.set(0.5, 0.47, 1.86); K.add(upper);
-      for (let i = 0; i < 7; i++) { const x = -1.6 + 0.3 + i * 0.6; if (x > 0.85 && x < 1.75) continue; const d = box(0.57, 0.02, 0.64, COL.door, { rough: 0.45 }); d.position.set(x, 0.295, 1.86); K.add(d); const h = box(0.018, 0.018, 0.16, COL.steel, { metal: 0.9, rough: 0.25 }); h.position.set(x + 0.2, 0.28, 1.61); K.add(h); }
+      const top = new THREE.Mesh(new THREE.BoxGeometry(4.64, 0.62, 0.04), new THREE.MeshStandardMaterial({ map: makeCounterTexture(), roughness: 0.32 })); top.position.set(0.5, 0.31, COUNTER_Z - 0.02); top.userData.look = 0xb08a62; top.receiveShadow = true; top.castShadow = true; K.add(top);
+      const upper = box(4.6, 0.34, 0.72, COL.upper, { rough: 0.6 }); upper.position.set(0.5, 0.47, 1.86); upper.userData.look = 0x6a5240; K.add(upper);
+      for (let i = 0; i < 7; i++) { const x = -1.6 + 0.3 + i * 0.6; if (x > 0.85 && x < 1.75) continue; const d = box(0.57, 0.02, 0.64, COL.door, { rough: 0.45 }); d.position.set(x, 0.295, 1.86); d.userData.look = 0x7a5e48; K.add(d); const h = box(0.018, 0.018, 0.16, COL.steel, { metal: 0.9, rough: 0.25 }); h.position.set(x + 0.2, 0.28, 1.61); K.add(h); }
       // warm under-cabinet light strip (emissive) — the counter reads as a lit stage
       const strip = box(4.4, 0.03, 0.012, 0xffd9a8, { emissive: 0xffd9a8, ei: 2.2, shadow: false }); strip.position.set(0.5, 0.42, 1.495); K.add(strip);
       const range = box(0.76, 0.60, 0.84, COL.rangeBody, { rough: 0.35, metal: 0.6 }); range.position.set(1.3, 0.30, 0.42); K.add(range);
@@ -334,6 +390,18 @@
       const column = box(0.28, 0.28, 0.34, COL.baseLight, { rough: 0.4, metal: 0.4 }); column.position.set(0, 0.22, 0.54); B.add(column);
       const armPlate = box(0.26, 0.26, 0.02, COL.base, { rough: 0.5 }); armPlate.position.set(0, 0.22, 0.72); B.add(armPlate);
       this.robotMount = new THREE.Vector3(MOUNT_X, -0.22, 0.73);
+      // everyday clutter, shown only in the "new kitchen" (sim-to-real chapter); kept behind the work area
+      const CL = new THREE.Group(); CL.name = 'clutter'; CL.visible = false; K.add(CL); this.clutter = CL;
+      const put = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; CL.add(m); return m; };
+      put(box(0.19, 0.07, 0.27, 0xc8412f, { rough: 0.6 }), -0.42, 0.50, COUNTER_Z + 0.135);
+      put(box(0.19, 0.072, 0.07, 0xf2c14e, { rough: 0.6 }), -0.42, 0.464, COUNTER_Z + 0.20);
+      put(box(0.36, 0.22, 0.02, 0x9b6b3f, { rough: 0.7 }), -0.22, 0.52, COUNTER_Z + 0.01);
+      { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.12, 20), std(0xb9c2cc, { metal: 0.3, rough: 0.35 })); c.rotation.x = Math.PI / 2; put(c, 0.12, 0.50, COUNTER_Z + 0.06); }
+      { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.12, 20), std(0xd2443a, { rough: 0.4 })); c.rotation.x = Math.PI / 2; put(c, 0.20, 0.53, COUNTER_Z + 0.06); }
+      { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.05, 0.11, 20), std(0xb4643c, { rough: 0.8 })); pot.rotation.x = Math.PI / 2; put(pot, 0.98, 0.50, COUNTER_Z + 0.055);
+        const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.10, 20, 14), std(0x3f8a4a, { rough: 0.8 })); leaf.scale.set(1, 1, 0.8); put(leaf, 0.98, 0.50, COUNTER_Z + 0.17); }
+      { const mug = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.09, 20), std(0xf0ece4, { rough: 0.4 })); mug.rotation.x = Math.PI / 2; put(mug, 0.80, 0.47, COUNTER_Z + 0.045); }
+      { const bottle = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.26, 16), std(0x2f6b4f, { rough: 0.2 })); bottle.rotation.x = Math.PI / 2; put(bottle, -0.62, 0.52, COUNTER_Z + 0.13); }
       // performance: large matte backdrop surfaces use Lambert shading (per-vertex lighting, still shadowed and fogged);
       // metal parts keep PBR + environment reflections. In software WebGL this halves the frame cost.
       K.traverse(o => {
@@ -453,6 +521,13 @@
       this.qOpen = this.solvePath(this.trajOpen, this.qStraight[0]);
       this.trajArcHi = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.48, 60); // held-out higher barrier
       this.qArcHi = this.solvePath(this.trajArcHi, this.qStraight[0]);
+      // sim-to-real chapter: the VLA's grasp lands 6 cm off in the new kitchen (hover → down → back up, empty),
+      // then the corrected chunk moves over to the banana, grasps it and places it
+      const MISS = S.x - 0.06, hoverM = [MISS, 0.13];
+      this.trajMiss = [hoverM].concat(seg(hoverM, [MISS, BANANA_HALF_H + 0.002], 10), seg([MISS, BANANA_HALF_H + 0.002], hoverM, 10));
+      this.qMiss = this.solvePath(this.trajMiss, this.qStraight[0]);
+      this.trajFix = [hoverM].concat(seg(hoverM, [S.x, 0.13], 6), this.trajOpen.slice(1));
+      this.qFix = this.solvePath(this.trajFix, this.qMiss[this.qMiss.length - 1]);
       const res = (traj, qs) => Math.max(...qs.map((q, k) => { const M = P.fk(q), p = new THREE.Vector3().setFromMatrixPosition(M).applyMatrix4(P.root.matrixWorld); const w = fieldToWorld(traj[k][0], traj[k][1]); w.z -= 0.004; return p.distanceTo(w); }));
       this.ikResidual = Object.assign(this.ikResidual || {}, { straight: res(this.trajStraight, this.qStraight), arc: res(this.trajArc, this.qArc), open: res(this.trajOpen, this.qOpen) });
     }
@@ -616,7 +691,7 @@
       this.roof.visible = false; this.ceiling.visible = false; this.bananaB.visible = false; this.bowl2.visible = false; this.cup.visible = false;
       this.bowl.material.opacity = 1; this.bowl.visible = true; this.bowl.scale.setScalar(1);
       this.barrier.visible = true; this.barrier.scale.set(1, 1, 1); this.barrier.position.set((WORLD.barrierX0 + WORLD.barrierX1) / 2 + X_OFF, 0.225, COUNTER_Z + WORLD.barrierH / 2);
-      this.setOpacity(1); this.split = false; this.halves = null;
+      this.setOpacity(1); this.split = false; this.halves = null; this.geo = 0; this.geoIn = null; this.geoOut = null; this.setLook(0);
     }
     label(pos, text, color, o) { this.labels.push(Object.assign({ pos, text, color }, o || {})); }
     flash(p, u0, u) { // collision ring at the barrier, for field position p
@@ -803,6 +878,7 @@
             this.gradAt(core.F.L0, probe, u, G.grad[0]);
             this.proposalAndCorrection(probe, [WORLD.bowlX - 0.04, 0.13], this.streams.L0, u, G.prop, G.corr);
           }
+          if (u > G.check + 0.6) this.labels = []; // the numerical-check panel covers the scene
           break;
         }
         case 'direct': {
@@ -935,6 +1011,51 @@
           } else this.orbit(u, s.dur);
           break;
         }
+        case 'sim2real': {
+          const S = TL.sim2real;
+          this.barrier.visible = false;
+          const restP = fieldToWorld(WORLD.start.x, BANANA_HALF_H + 0.002), bowlP = fieldToWorld(WORLD.bowlX, 0.066);
+          const rest = (pt) => { this.banana.visible = true; this.banana.position.copy(pt); this.banana.rotation.set(0, 0, 0); };
+          // key-framed playback of a precomputed joint path: keys = [[time, sample index], …]
+          const play = (qs, traj, keys, t) => {
+            let idx = 0; for (let k = 0; k < keys.length - 1; k++) { const [a, ia] = keys[k], [b, ib] = keys[k + 1]; if (t >= a && t <= b) idx = lerp(ia, ib, easeIO((t - a) / (b - a || 1))); else if (t > b) idx = ib; }
+            const pr = idx / (traj.length - 1); return { q: this.sampleQ(qs, pr), p: this.sampleP(traj, pr) };
+          };
+          if (u < S.fix) {
+            splitCam(); this.split = true;
+            const CR = [0.62, -1.80, 1.48, 0.40, 0.22, 1.10, 36]; // the new kitchen's camera sits elsewhere
+            this.camera3.position.set(CR[0], CR[1], CR[2]); this.camera3.lookAt(CR[3], CR[4], CR[5]); this.camera3.fov = CR[6]; this.camera3.updateProjectionMatrix();
+            const t = u - S.miss;
+            // left, simulation: the familiar skill — grasp, lift, carry, place
+            const L = play(this.qOpen, this.trajOpen, [[1.5, 0], [3, 11], [3.4, 11], [4.8, 21], [10, 50], [12, 60]], t);
+            const fL = t < 3 ? 0.04 : t < 3.4 ? lerp(0.04, 0.018, (t - 3) / 0.4) : t < 12 ? 0.018 : t < 12.5 ? lerp(0.018, 0.04, (t - 12) / 0.5) : 0.04, heldL = t >= 3.2 && t < 12.2;
+            // right, new kitchen: the same VLA closes 6 cm beside the banana and lifts nothing
+            const R = play(this.qMiss, this.trajMiss, [[1.5, 0], [3, 10], [3.6, 10], [5, 20]], t);
+            const fR = t < 3 ? 0.04 : t < 3.6 ? lerp(0.04, 0.001, (t - 3) / 0.6) : 0.001;
+            this.scanGeo(u, S);
+            const proj3 = v => this.project(v, this.camera3, W2, W2);
+            if (t > 3.8 && u < S.geo) { const px = proj3(fieldToWorld(WORLD.start.x - 0.06, 0.22)); if (px) this.label(null, 'misses the grasp', LC.red, { px, size: 26, weight: 700, align: 'center', alpha: ramp(t, 3.8, 4.4) * (1 - ramp(u, S.geo - 0.6, S.geo)) }); }
+            this.halves = [
+              { cam: this.camera2, apply: () => { this.setLook(0); this.setRobot(L.q, fL, heldL ? L.p : null); if (!heldL) rest(t < 3.2 ? restP : bowlP); } },
+              { cam: this.camera3, apply: () => { this.setLook(1); this.setRobot(R.q, fR, null); rest(restP); } }
+            ];
+          } else {
+            // full frame, the new kitchen with the geometry layer: the VLA's proposal (blue) → correction (orange) → execution
+            this.lookFrom(0.78, -1.62, 1.55, 0.42, 0.22, 1.08, 32);
+            this.setLook(1); this.scanGeo(u, S); // the teacher's view, then a cut back to the real kitchen
+            const t = u - S.exec;
+            const F = play(this.qFix, this.trajFix, [[0, 0], [1.2, 6], [2.4, 16], [2.8, 16], [4.0, 26], [8.5, 56], [10, 66]], t);
+            const ff = t < 2.4 ? 0.04 : t < 2.8 ? lerp(0.04, 0.018, (t - 2.4) / 0.4) : t < 10 ? 0.018 : t < 10.5 ? lerp(0.018, 0.04, (t - 10) / 0.5) : 0.04, held = t >= 2.6 && t < 10.2;
+            this.setRobot(F.q, ff, held ? F.p : null); if (!held) rest(t < 2.6 ? restP : bowlP);
+            const MISS = WORLD.start.x - 0.06, gone = 1 - ramp(t, 9, 10);
+            const pa = ramp(u, S.fix + 1, S.fix + 1.8) * gone;
+            if (pa > 0) { this.showProp([fieldToWorld(MISS, 0.13), fieldToWorld(MISS, 0.07), fieldToWorld(MISS, BANANA_HALF_H + 0.01)], pa); this.label(fieldToWorld(MISS - 0.02, 0.05), 'VLA proposal', LC.blueDeep, { size: 22, align: 'right', alpha: pa }); }
+            const ca = ramp(u, S.fix + 2.5, S.fix + 3.3) * gone;
+            if (ca > 0) { this.showChunk(this.trajFix.slice(0, 17), ca, sramp(u, S.fix + 2.5, S.fix + 4)); this.label(fieldToWorld(WORLD.start.x + 0.05, 0.17), 'corrected chunk', LC.orangeDeep, { size: 22, alpha: ca }); }
+            if (u > S.fix + 0.5) this.label(fieldToWorld(0.66, 0.34), 'geometry view — what the teacher sees', LC.tealDeep, { size: 22, align: 'center', alpha: ramp(u, S.fix + 0.5, S.fix + 1.3) * (1 - ramp(u, S.geoOut, S.geoOut + 0.5)) });
+          }
+          break;
+        }
         default: this.orbit(u, s.dur); // thesis, teach, levels, notclaims, end, appendix: diagrams over a slow orbit
       }
       this.labelsOut = this.labels.map(l => Object.assign({}, l, { px: l.px || (l.pos ? this.project(l.pos) : null) }));
@@ -945,12 +1066,12 @@
     render() {
       const r = this.renderer, W = core.W, H = core.H;
       r.setScissorTest(false);
-      if (!this.split) { r.setViewport(0, 0, W, H); r.render(this.scene, this.camera); return; }
+      if (!this.split) { r.setViewport(0, 0, W, H); r.render(this.scene, this.camera); this.renderGeo(this.camera); return; }
       r.setScissorTest(true);
       this.halves.forEach((h, k) => {
         h.apply(); this.scene.updateMatrixWorld(true);
         const x0 = k * W / 2; r.setViewport(x0, 0, W / 2, H); r.setScissor(x0, 0, W / 2, H);
-        r.render(this.scene, this.camera2);
+        const cam = h.cam || this.camera2; r.render(this.scene, cam); this.renderGeo(cam);
       });
       r.setScissorTest(false);
     }
