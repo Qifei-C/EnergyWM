@@ -693,7 +693,6 @@
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 3.2, 4.2);
     ctx.fillStyle = C.orange; ctx.fillRect(150, 730, 120, 4);
-    spaced(ctx, 'RESEARCH PLAN  ·  CONCEPT / HYPOTHESIS  ·  2026-11-01', 150, 784, { size: 19, weight: 600, color: C.mute, spacing: 2.6 });
     ctx.restore();
   }
 

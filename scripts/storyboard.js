@@ -19,7 +19,7 @@ const tc = s => { const m = Math.floor(s / 60), r = s - m * 60; return `${m}:${r
 const D = {
   title: {
     act: ['广角厨房镜头缓慢推移；机械臂轻微待机摆动；切片平面上淡入青色 T 等值线。'],
-    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.', 'RESEARCH PLAN · CONCEPT / HYPOTHESIS · 2026-11-01']
+    txt: ['Energy-Field Teachers / for Small VLAs', 'Help a small VLA get it right the first time — / then let it learn to do without the teacher.']
   },
   gap: {
     act: ['0–16 s 无挡板的开放布局：从台面抓起香蕉（≈3 s）、抬起、低弧线搬运、放进碗（≈12 s）、松开。',

@@ -18,7 +18,6 @@
 
 - Energy-Field Teachers / for Small VLAs
 - Help a small VLA get it right the first time — / then let it learn to do without the teacher.
-- RESEARCH PLAN · CONCEPT / HYPOTHESIS · 2026-11-01
 
 **字幕**：无
 
