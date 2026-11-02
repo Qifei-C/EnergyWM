@@ -238,7 +238,8 @@
     top: { wallY0: 0.0, wallY1: 0.50, goalY0: 0.26, goalY1: 0.38 },
     tallH: 0.42,
     // scene "change the task": a second (blue) bowl becomes the goal, a cup between the bowls must not be touched
-    bowl2X: 1.05, cup: { x0: 0.90, x1: 0.95, h: 0.11 }, goal2: { x0: 0.99, x1: 1.11, z0: 0.03, z1: 0.10 }
+    // (kept inside the arm's top-down workspace; the old bowl is cleared away when the goal changes)
+    bowl2X: 0.88, cup: { x0: 0.645, x1: 0.695, h: 0.11 }, goal2: { x0: 0.82, x1: 0.94, z0: 0.03, z1: 0.10 }
   };
   // grasp point (banana centre, field coords) where the banana's leading tip touches the barrier
   function contactPoint() { return { x: WORLD.barrierX0 - WORLD.bananaHalf - 0.01, z: WORLD.start.z }; }
@@ -343,10 +344,10 @@
     F.L0 = makeField(Object.assign({}, base, { sdf: sideSdf(WORLD.barrierH) }));
     F.L1 = makeField(Object.assign({}, base, { sdf: sideSdf(0) }));
     F.L3 = makeField(Object.assign({}, base, { sdf: sideSdf(WORLD.tallH) }));
-    // L4: new goal (blue bowl) + forbidden contact with the cup and the old bowl
-    const G2 = WORLD.goal2, CU = WORLD.cup, b0 = WORLD.bowlX - WORLD.bowlR, b1 = WORLD.bowlX + WORLD.bowlR;
+    // L4: new goal (blue bowl, replacing the old one) + forbidden contact with the cup
+    const G2 = WORLD.goal2, CU = WORLD.cup;
     F.L4 = makeField(Object.assign({}, base, {
-      sdf: (x, y) => Math.min(sideSdf(WORLD.barrierH)(x, y), rectSdf(x, y, CU.x0, CU.x1, -1, CU.h), rectSdf(x, y, b0, b1, -1, WORLD.bowlH)),
+      sdf: (x, y) => Math.min(sideSdf(WORLD.barrierH)(x, y), rectSdf(x, y, CU.x0, CU.x1, -1, CU.h)),
       goal: (x, y) => x >= G2.x0 && x <= G2.x1 && y >= G2.z0 && y <= G2.z1
     }));
     // L2: top view (x right, y lateral). Wall spans y∈[0,0.50], opening at the far side.
@@ -657,7 +658,7 @@
     { id: 'policy', name: 'Policy student: learning to need it less', dur: 72 },
     { id: 'invest', name: 'Deployment states', dur: 34 },
     { id: 'levels', name: 'Four levels — and the Level 3 test', dur: 56 },
-    { id: 'notclaims', name: 'What we do not claim', dur: 20 },
+    { id: 'notclaims', name: 'What we build on — and what it gives us', dur: 35 },
     { id: 'end', name: 'The proposition', dur: 30 },
     { id: 'appendix', name: 'Appendix: prior numbers and their scope', dur: 22 }
   ];
@@ -698,6 +699,8 @@
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 3.2, 4.2);
     ctx.fillStyle = C.orange; ctx.fillRect(150, 730, 120, 4);
+    text(ctx, 'Qifei C.', 150, 792, { size: 30, weight: 600, color: C.ink });
+    text(ctx, 'CocoMatrix', 150, 832, { size: 24, color: C.mute });
     ctx.restore();
   }
 
@@ -1366,25 +1369,38 @@
   // =====================================================================
   function sceneNotClaims(ctx, u) {
     wash(ctx, 0.95);
-    heading(ctx, 'What we do not claim as contributions', 100, 170, 48, ramp(u, 0, 0.8));
-    const cards = [
-      ['No path output', 'an interface choice — planners stay as baselines', 0.6],
-      ['No best-of-N', 'compared on success, cost and adaptation speed', 1.6],
-      ['Using JEPA', 'the question is how well it teaches', 2.6],
-      ['The geometric field', 'if geometry alone suffices, we accept that', 10]
+    heading(ctx, 'What we build on — and what it gives us', 100, 170, 48, ramp(u, 0, 0.8));
+    ctx.save(); ctx.globalAlpha = ramp(u, 0.4, 1.0);
+    tag(ctx, 'WE BUILD ON', 100, 262, C.tealDeep); tag(ctx, 'WHAT WE GAIN', 1000, 262, C.orangeDeep);
+    ctx.restore();
+    const rows = [
+      ['Geometric fields', 'SDF and a numerically computed progress field T', 'A progress signal for any layout', 'recomputed when the scene changes — no retraining'],
+      ['An action-conditioned world model', 'trained readouts: grip, slip, contact', 'Consequences geometry cannot see', 'same path, different speed — told apart'],
+      ['The VLA’s own skills', 'its proposal and its denoising steps', 'Corrections close to what it already does', 'a gradient on its own chunk, not a new path'],
+      ['Execution-verified corrections', 'replayed together with old skills', 'A VLA that needs the teacher less', 'checked with all guidance off, from held-out starts']
     ];
-    cards.forEach(([t, s, t0], i) => {
-      const x = 100 + (i % 2) * 880, y = 250 + Math.floor(i / 2) * 230, w = 840, h = 190;
-      ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.8));
-      panelBox(ctx, x, y, w, h, {});
-      tag(ctx, 'NOT A SELLING POINT', x + 32, y + 44, C.red);
-      text(ctx, t, x + 32, y + 100, { fam: SERIF, weight: 600, size: 40, color: C.ink });
-      text(ctx, s, x + 32, y + 150, { size: 24, color: C.mute });
+    rows.forEach(([l, ls, r, rs], i) => {
+      const y = 330 + i * 140, t0 = 1 + i * 7;
+      ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.7), 10);
+      ctx.fillStyle = C.teal; rrect(ctx, 100, y - 34, 5, 96, 2); ctx.fill();
+      text(ctx, l, 130, y, { size: 30, weight: 600, color: C.ink });
+      text(ctx, ls, 130, y + 42, { size: 21, color: C.mute });
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = ramp(u, t0 + 1.6, t0 + 2.2);
+      arrow(ctx, 860, y + 6, 950, y + 6, { color: C.faint, width: 3, head: 12 });
+      ctx.restore();
+      ctx.save(); appear(ctx, ramp(u, t0 + 2.2, t0 + 2.9), 10);
+      ctx.fillStyle = C.orange; rrect(ctx, 1000, y - 34, 5, 96, 2); ctx.fill();
+      text(ctx, r, 1030, y, { size: 30, weight: 600, color: C.ink });
+      text(ctx, rs, 1030, y + 42, { size: 21, color: C.mute });
       ctx.restore();
     });
     captions(ctx, u, [
-      [0, 10, 'Not claimed as contributions: skipping paths or best-of-N, or using JEPA.'],
-      [10, 20.2, 'And if geometry alone solves the task, the experiment will say so.']
+      [0, 7, 'What we build on, and what each part gives us.'],
+      [7, 14, 'Geometric fields give a progress signal that is recomputed for any layout.'],
+      [14, 21, 'A world model adds the consequences geometry cannot see: slip, contact, timing.'],
+      [21, 28, 'Correcting the VLA’s own chunk keeps it close to the skills it already has.'],
+      [28, 35.2, 'Learning from verified corrections, the VLA needs the teacher less.']
     ]);
   }
 
@@ -1410,6 +1426,8 @@
     text(ctx, 'Not a smarter planner carried forever — a teacher the robot outgrows.', 960, 740, { fam: SERIF, weight: 600, size: 38, color: C.orangeDeep, align: 'center' });
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 25, 26);
+    text(ctx, 'Qifei C.', 160, 826, { size: 24, weight: 600, color: C.ink });
+    text(ctx, '· CocoMatrix', 160 + (font(ctx, 600, 24, SANS), ctx.measureText('Qifei C.').width) + 10, 826, { size: 24, color: C.mute });
     text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2601.16163 · 2603.16666 · 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011', 160, 866, { size: 16, color: C.faint });
     text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 894, { size: 16, color: C.faint });
     ctx.restore();

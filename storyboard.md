@@ -1,7 +1,7 @@
 # Storyboard — Energy-Field Teachers for Small VLAs
 
 自动生成：`node scripts/storyboard.js`（字幕从 core.js 直接解析，时间码为全片绝对时间）。
-16:9 · 1920×1080 · 30 fps · 总长 11:52.0（712 s）· 16 章 · 场景切换 0.5 s 交叉淡化。
+16:9 · 1920×1080 · 30 fps · 总长 12:07.0（727 s）· 16 章 · 场景切换 0.5 s 交叉淡化。
 
 **主题**：已具备基本技能的小 VLA 在新的条件组合下，借助教师（几何 + 预测后果）先做对，把纠正学进去，再逐步不需要教师。
 “第一次：预测与推理；之后：便宜、可迁移的技能。” 片中所有优势均为希望通过实验建立的假设，不是结果；屏幕上的数字都来自引用文献并标注出处。
@@ -18,6 +18,7 @@
 
 - Energy-Field Teachers / for Small VLAs
 - Help a small VLA get it right the first time — / then let it learn to do without the teacher.
+- 作者：Qifei C.（CocoMatrix）
 
 **字幕**：无
 
@@ -227,7 +228,8 @@
 - 0–8 s：正面 T 切片 + −∇T。
 - 每种布局（8 s）：场重算 → 同一个蓝色 VLA 原提案 → 不同的橙色修正动作块 → 机械臂执行修正动作块再收回。
 - 8–16 s 去掉挡板（直拉，无多余抬高）；16–24 s 封顶，俯视顶视图，标出 side opening，修正绕向侧面开口；24–32 s 加高挡板（更大净空）。
-- 32–44 s 新目标蓝碗 + 杯子禁止接触：场实时重算，修正越过挡板、从杯子上方送进蓝碗。
+- 32–44 s 新目标：旧碗收走，蓝碗出现在机械臂可俯抓的范围内，杯子放在挡板和蓝碗之间、禁止接触；场实时重算，修正越过挡板、从杯子上方送进蓝碗。
+- 香蕉始终按夹爪的实际位姿（正向运动学）跟随，不会与夹爪错位。
 
 **画面文字（原文）**
 
@@ -359,25 +361,31 @@
 | 10:30.0 | 10:36.0 | Same budget, all guidance off, held-out starts: success decides. |
 | 10:36.0 | 10:40.0 | Limit: the student must be able to see what decides the right action. |
 
-## 14 · What we do not claim  `10:40.0 – 11:00.0` (20 s)
+## 14 · What we build on — and what it gives us  `10:40.0 – 11:15.0` (35 s)
 
 **3D 动作**
 
-- 纯图示（3D 在背板后）。
+- 纯图示（3D 在背板后）。四行，每 7 s 一行：左边先出（我们基于什么），箭头，右边再出（由此得到什么）。
 
 **画面文字（原文）**
 
-- 标题：What we do not claim as contributions（每卡标签 NOT A SELLING POINT）
-- No path output — an interface choice — planners stay as baselines；No best-of-N — compared on success, cost and adaptation speed；Using JEPA — the question is how well it teaches；The geometric field — if geometry alone suffices, we accept that
+- 标题：What we build on — and what it gives us；列头 WE BUILD ON / WHAT WE GAIN
+- 1 Geometric fields — SDF and a numerically computed progress field T → A progress signal for any layout — recomputed when the scene changes — no retraining
+- 2 An action-conditioned world model — trained readouts: grip, slip, contact → Consequences geometry cannot see — same path, different speed — told apart
+- 3 The VLA’s own skills — its proposal and its denoising steps → Corrections close to what it already does — a gradient on its own chunk, not a new path
+- 4 Execution-verified corrections — replayed together with old skills → A VLA that needs the teacher less — checked with all guidance off, from held-out starts
 
 **字幕**
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 10:40.0 | 10:50.0 | Not claimed as contributions: skipping paths or best-of-N, or using JEPA. |
-| 10:50.0 | 11:00.0 | And if geometry alone solves the task, the experiment will say so. |
+| 10:40.0 | 10:47.0 | What we build on, and what each part gives us. |
+| 10:47.0 | 10:54.0 | Geometric fields give a progress signal that is recomputed for any layout. |
+| 10:54.0 | 11:01.0 | A world model adds the consequences geometry cannot see: slip, contact, timing. |
+| 11:01.0 | 11:08.0 | Correcting the VLA’s own chunk keeps it close to the skills it already has. |
+| 11:08.0 | 11:15.0 | Learning from verified corrections, the VLA needs the teacher less. |
 
-## 15 · The proposition  `11:00.0 – 11:30.0` (30 s)
+## 15 · The proposition  `11:15.0 – 11:45.0` (30 s)
 
 **3D 动作**
 
@@ -389,17 +397,17 @@
 - For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations with fewer new demonstrations or interactions — and keep that ability once guidance is removed?
 - 1 Useful on new combinations · 2 Cheaper adaptation · 3 Holds without the teacher
 - 20 s：Not a smarter planner carried forever — a teacher the robot outgrows.
-- 25 s：引用列表与素材致谢
+- 25 s：作者 Qifei C. · CocoMatrix、引用列表与素材致谢
 
 **字幕**
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 11:00.0 | 11:10.0 | The proposition, stated so that it can fail. |
-| 11:10.0 | 11:18.0 | One part: better inference. Two: faster adaptation. All three: the loop. |
-| 11:18.0 | 11:25.0 | Not a smarter planner carried forever — a teacher the robot outgrows. |
+| 11:15.0 | 11:25.0 | The proposition, stated so that it can fail. |
+| 11:25.0 | 11:33.0 | One part: better inference. Two: faster adaptation. All three: the loop. |
+| 11:33.0 | 11:40.0 | Not a smarter planner carried forever — a teacher the robot outgrows. |
 
-## 16 · Appendix: prior numbers and their scope  `11:30.0 – 11:52.0` (22 s)
+## 16 · Appendix: prior numbers and their scope  `11:45.0 – 12:07.0` (22 s)
 
 **3D 动作**
 
@@ -415,8 +423,8 @@
 
 | 开始 | 结束 | 字幕 |
 |---|---|---|
-| 11:30.0 | 11:40.0 | Prior numbers, each from its own task and protocol — not one comparison. |
-| 11:40.0 | 11:52.0 | They motivate the questions this plan asks. |
+| 11:45.0 | 11:55.0 | Prior numbers, each from its own task and protocol — not one comparison. |
+| 11:55.0 | 12:07.0 | They motivate the questions this plan asks. |
 
 ## 素材与许可
 

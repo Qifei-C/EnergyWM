@@ -1,6 +1,6 @@
 # EnergyWM — motion-graphics explainer of the energy-field-teacher research plan
 
-Purpose: a ~11:52 (16 chapters), 1920×1080, 30 fps explainer (English captions, dark "night lab" look) of the plan. Thesis: a small VLA
+Purpose: a ~12:07 (16 chapters), 1920×1080, 30 fps explainer (English captions, dark "night lab" look) of the plan. Thesis: a small VLA
 that already has basic skills meets a new combination of conditions; a teacher (geometry + predicted consequences) helps it
 get it right, the correction is learned, and the teacher is gradually no longer needed ("first time: predict and reason;
 after that: a cheap, transferable skill"). See `storyboard.md`.

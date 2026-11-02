@@ -375,7 +375,7 @@
       const cropF = TOP_Y_CROP / (FZ1 - FZ0);
       this.topTex.repeat.set(1, 1 - cropF); this.topTex.offset.set(0, cropF); // plane v ∈ [0,1] ↔ texture v ∈ [crop, 1]
       this.topPlane = new THREE.Mesh(new THREE.PlaneGeometry(FX1 - FX0, FZ1 - FZ0 - TOP_Y_CROP), new THREE.MeshBasicMaterial({ map: this.topTex, transparent: true, opacity: 0.0, side: THREE.DoubleSide, depthWrite: false }));
-      this.topPlane.position.set((FX0 + FX1) / 2 + X_OFF, (FZ1 - FZ0 + TOP_Y_CROP) / 2 - 0.10, COUNTER_Z + 0.17); T.add(this.topPlane);
+      this.topPlane.position.set((FX0 + FX1) / 2 + X_OFF, (FZ1 - FZ0 + TOP_Y_CROP) / 2 - 0.10, COUNTER_Z + 0.135); T.add(this.topPlane); // just below the carried banana (centre at +0.17)
     }
     buildOverlays3d() {
       const O = new THREE.Group(); O.name = 'overlays'; this.scene.add(O); this.ov = O;
@@ -407,16 +407,43 @@
         const w = fieldToWorld(fx, fz); w.z -= 0.004; // fingertips slightly below the banana's centre: pads wrap the fruit
         const M = new THREE.Matrix4().copy(R); M.setPosition(w); return new THREE.Matrix4().multiplyMatrices(rootInv, M);
       };
-      this.solvePath = (pts, q0) => { let q = (q0 || P.q).slice(); const out = []; for (const p of pts) { q = P.ik(q, this.poseFor(p[0], p[1]), 60); out.push(q.slice()); } return out; };
+      // adaptive IK: keep the hand top-down where the target is reachable that way; near the edge of the workspace,
+      // relax the orientation weight step by step so the fingertips still reach the target (the hand tilts a little)
+      this.qRefInv = new THREE.Quaternion().setFromRotationMatrix(R).invert();
+      this.ikA = (q0, T, it) => {
+        const tp = new THREE.Vector3().setFromMatrixPosition(T);
+        let q = P.ik(q0, T, it || 60);
+        for (const wr of [0.1, 0.03, 0.01]) { if (new THREE.Vector3().setFromMatrixPosition(P.fk(q)).distanceTo(tp) < 0.0015) break; q = P.ik(q, T, 150, wr); }
+        return q;
+      };
+      // a whole path: top-down first; if some targets need a relaxed orientation weight, spread that relaxation smoothly
+      // over the neighbouring samples (min-filter + moving average of the weight) so the hand never snaps
+      this.solveSeq = (Ts, q0) => {
+        const LAD = [0.35, 0.1, 0.03, 0.01], err = (q, T) => new THREE.Vector3().setFromMatrixPosition(P.fk(q)).distanceTo(new THREE.Vector3().setFromMatrixPosition(T));
+        let q = q0.slice(); const lvl = [];
+        for (const T of Ts) { let k = 0; q = P.ik(q, T, 60, LAD[0]); while (k < LAD.length - 1 && err(q, T) > 0.0015) { k++; q = P.ik(q, T, 150, LAD[k]); } lvl.push(k); }
+        if (!lvl.some(k => k > 0)) { q = q0.slice(); return Ts.map(T => (q = P.ik(q, T, 60)).slice()); }
+        const n = Ts.length, R1 = 6, R2 = 4;
+        const lw = lvl.map(k => Math.log(LAD[k]));
+        const mn = lw.map((_, i) => { let m = Infinity; for (let j = Math.max(0, i - R1); j <= Math.min(n - 1, i + R1); j++) m = Math.min(m, lw[j]); return m; });
+        const wt = mn.map((_, i) => { let s2 = 0, c = 0; for (let j = Math.max(0, i - R2); j <= Math.min(n - 1, i + R2); j++) { s2 += mn[j]; c++; } return Math.exp(s2 / c); });
+        q = q0.slice(); let qs = Ts.map((T, i) => (q = P.ik(q, T, 150, wt[i])).slice());
+        for (let pass = 0; pass < 3; pass++) qs = smoothQ(qs).map((qq, i) => P.ik(qq, Ts[i], 4, wt[i])); // smooth, then pull back onto the path
+        return qs;
+      };
+      // light temporal smoothing of a joint sequence (symmetric 5-tap window, shrinking at the ends so endpoints are exact):
+      // removes single-sample elbow jumps where IK meets a joint-limit clamp near full extension
+      const smoothQ = (qs) => { const n = qs.length, K = [1, 2, 3, 2, 1]; return qs.map((q, i) => { const r = Math.min(2, i, n - 1 - i); return q.map((_, j) => { let s2 = 0, c = 0; for (let d = -r; d <= r; d++) { s2 += qs[i + d][j] * K[d + 2]; c += K[d + 2]; } return s2 / c; }); }); };
+      this.solvePath = (pts, q0) => this.solveSeq(pts.map(p => this.poseFor(p[0], p[1])), (q0 || P.q).slice());
       const contact = core.util.contactPoint();
       this.trajStraight = []; for (let i = 0; i <= 40; i++) this.trajStraight.push([lerp(WORLD.start.x, contact.x, i / 40), WORLD.start.z]);
       this.qStraight = this.solvePath(this.trajStraight);
       this.trajArc = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.40, 60);
       this.qArc = this.solvePath(this.trajArc);
-      const pr = core.F.pStar; this.qProbe = P.ik(this.qStraight[this.qStraight.length - 1], this.poseFor(pr.x, pr.z), 80);
+      const pr = core.F.pStar; this.qProbe = this.ikA(this.qStraight[this.qStraight.length - 1], this.poseFor(pr.x, pr.z), 80);
       this.probeProg = (pr.x - WORLD.start.x) / (contact.x - WORLD.start.x); // the stall point lies on the straight approach
       this.poseAtW = (w) => { const v = w.clone(); v.z -= 0.004; const M = new THREE.Matrix4().copy(R); M.setPosition(v); return new THREE.Matrix4().multiplyMatrices(rootInv, M); };
-      this.solvePathW = (ws, q0) => { let q = q0.slice(); const out = []; for (const w of ws) { q = P.ik(q, this.poseAtW(w), 60); out.push(q.slice()); } return out; };
+      this.solvePathW = (ws, q0) => this.solveSeq(ws.map(w => this.poseAtW(w)), q0.slice());
       this.buildStreams();
       this.qHome = [0, -0.5, 0, -2.3, 0, 1.9, 0.78];
       // open layout (no barrier): approach, grasp from the counter, lift, carry low, place in the bowl
@@ -480,15 +507,22 @@
       };
       const pr = core.F.pStar, probe = [pr.x, pr.z], W2 = WORLD, cup = W2.cup;
       const bar = h => [{ x0: B.x0, x1: B.x1, h }];
-      const side = (key, obs) => { const pts = lift(trace(core.F[key], probe, 70), obs); return { pts, q: this.solvePath(pts, this.qProbe) }; };
+      // resample to uniform arc length (the lift envelope bunches points), so the arm moves at an even speed
+      const even = (pts) => {
+        const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+        const n = pts.length, tot = L[n - 1], o = []; let j = 0;
+        for (let i = 0; i < n; i++) { const s2 = tot * i / (n - 1); while (j < n - 2 && L[j + 1] < s2) j++; const f = (s2 - L[j]) / Math.max(L[j + 1] - L[j], 1e-9); o.push([lerp(pts[j][0], pts[j + 1][0], f), lerp(pts[j][1], pts[j + 1][1], f)]); }
+        return o;
+      };
+      const side = (key, obs) => { const pts = even(lift(trace(core.F[key], probe, 70), obs)); return { pts, q: this.solvePath(pts, this.qProbe) }; };
       this.streams = {
         L0: side('L0', bar(W2.barrierH)),
         L1: side('L1', []),
         L3: side('L3', bar(W2.tallH)),
-        L4: side('L4', bar(W2.barrierH).concat([{ x0: cup.x0, x1: cup.x1, h: cup.h }, { x0: W2.bowlX - W2.bowlR, x1: W2.bowlX + W2.bowlR, h: W2.bowlH }]))
+        L4: side('L4', bar(W2.barrierH).concat([{ x0: cup.x0, x1: cup.x1, h: cup.h }]))
       };
       // top view (L2): the banana moves in x–y at fixed height, around the side opening
-      const top = trace(core.F.L2, [0.30, 0.32], 70), ws = top.map(p => topFieldToWorld(p[0], p[1]));
+      const top = even(trace(core.F.L2, [0.30, 0.32], 70)), ws = top.map(p => topFieldToWorld(p[0], p[1]));
       const qTop = this.solvePathW(ws, this.qStraight[0]);
       const P = this.panda, res = Math.max(...qTop.map((q, k) => new THREE.Vector3().setFromMatrixPosition(P.fk(q)).applyMatrix4(P.root.matrixWorld).distanceTo(ws[k].clone().setZ(ws[k].z - 0.004))));
       this.streams.L2 = { pts: top, ws, q: qTop, ok: res < 0.01 };
@@ -540,8 +574,13 @@
       o = o || {};
       this.panda.q = q; this.panda.fingers = fingers == null ? 0.018 : fingers; this.panda.apply();
       if (bananaField) {
-        const w = o.world ? o.world.clone() : fieldToWorld(bananaField[0], bananaField[1]); w.x += o.dx || 0; w.z += o.dz || 0;
-        this.banana.position.copy(w); this.banana.rotation.set(0, o.pitch || 0, 0); this.banana.visible = true;
+        // a held banana rides on the gripper's actual pose (forward kinematics), never on the target path,
+        // so the two cannot drift apart where IK or a joint-space blend departs from the target
+        const Mw = new THREE.Matrix4().multiplyMatrices(this.panda.root.matrixWorld, this.panda.fk(q));
+        const rel = new THREE.Quaternion().setFromRotationMatrix(Mw).multiply(this.qRefInv); // hand rotation relative to top-down
+        const off = new THREE.Vector3(o.dx || 0, 0, 0.004 + (o.dz || 0)).applyQuaternion(rel);
+        this.banana.position.setFromMatrixPosition(Mw).add(off);
+        this.banana.quaternion.copy(rel).multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, o.pitch || 0, 0))); this.banana.visible = true;
       } else this.banana.visible = false;
     }
     setOpacity(a) { this.panda.setOpacity(a); for (const m of this.banana.userData.mats) { m.opacity = a; m.depthWrite = a > 0.99; } }
@@ -575,7 +614,7 @@
       this.hideCem();
       this.ring.visible = false; this.halo.visible = false; this.plane.material.opacity = 0; this.topPlane.material.opacity = 0;
       this.roof.visible = false; this.ceiling.visible = false; this.bananaB.visible = false; this.bowl2.visible = false; this.cup.visible = false;
-      this.bowl.material.opacity = 1;
+      this.bowl.material.opacity = 1; this.bowl.visible = true; this.bowl.scale.setScalar(1);
       this.barrier.visible = true; this.barrier.scale.set(1, 1, 1); this.barrier.position.set((WORLD.barrierX0 + WORLD.barrierX1) / 2 + X_OFF, 0.225, COUNTER_Z + WORLD.barrierH / 2);
       this.setOpacity(1); this.split = false; this.halves = null;
     }
@@ -846,8 +885,10 @@
             { const a = this.streamAt(this.streams.L4, sramp(u, I.goalCut[1] + 1.6, I.goalCut[1] + 5.6)); this.setRobot(a.q, 0.018, a.p); this.setOpacity(lerp(GHOST, 0.75, ramp(u, I.goalCut[1] + 1.6, I.goalCut[1] + 2.2))); }
             const back = sramp(u, I.goal, I.goal + 1); const hs = lerp(WORLD.tallH / WORLD.barrierH, 1, back); this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2;
             const pop = sramp(u, I.goal, I.goal + 1);
-            this.bowl2.visible = true; this.bowl2.scale.setScalar(Math.max(pop, 0.01)); this.cup.visible = true; this.cup.scale.setScalar(Math.max(pop, 0.01));
-            this.bowl.material.opacity = lerp(1, 0.55, pop);
+            // the goal changes: the old bowl is cleared away, the blue bowl and the cup appear
+            const out = sramp(u, I.goal, I.goal + 0.6), inn = sramp(u, I.goal + 0.4, I.goal + 1.2);
+            this.bowl.scale.setScalar(Math.max(1 - out, 0.01)); this.bowl.visible = out < 0.99;
+            this.bowl2.visible = true; this.bowl2.scale.setScalar(Math.max(inn, 0.01)); this.cup.visible = true; this.cup.scale.setScalar(Math.max(inn, 0.01));
             this.paintPlane('T', core.F.L4.tmax * sramp(u, I.goalCut[0], I.goalCut[1]), { field: 'L4', quiver: ramp(u, I.goalCut[1], I.goalCut[1] + 1) }); this.plane.material.opacity = 0.92;
             this.gradAt(core.F.L4, probe, u, I.goalCut[1] + 0.5);
             this.proposalAndCorrection(probe, [WORLD.bowl2X - 0.04, 0.12], this.streams.L4, u, I.goalCut[1] + 0.7, I.goalCut[1] + 1.2);
