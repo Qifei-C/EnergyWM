@@ -9,26 +9,44 @@ const { liteAdaptor } = require('mathjax-full/js/adaptors/liteAdaptor.js');
 const { RegisterHTMLHandler } = require('mathjax-full/js/handlers/html.js');
 const { AllPackages } = require('mathjax-full/js/input/tex/AllPackages.js');
 
+// Notation (one meaning per symbol, defined on screen where each formula appears):
+//   A action chunk (next H actions) · τ denoising time · Â clean estimate · v_φ / π_φ the VLA (weights φ)
+//   F_θ world model (weights θ) · h observation history · K arm kinematics · E_geo geometry energy · ℓ outcome cost
+//   g goal · c constraints · λ guidance strength · 𝒫 normalize/clip/smooth · T progress field · S speed · x position
 const FORMULAS = {
-  vtheta: 'v_\\theta',
+  // formulas
   Ahat: '\\hat{A}',
-  KAhat: 'K(\\hat{A})',
-  EKAhat: 'E\\big(K(\\hat{A})\\big)',
-  guided: 'v_\\theta - \\lambda\\,\\nabla E',
-  update: 'v_\\theta - \\lambda\\,\\mathcal{P}(\\nabla E)',
-  Pcal: '\\mathcal{P}',
   Kmap: 'K',
   Fmap: 'F_\\theta(h,\\cdot)',
-  EgeoK: 'E_{\\mathrm{geometry}}\\big(K(\\hat{A})\\big)',
+  EgeoK: 'E_{\\mathrm{geo}}\\big(K(\\hat{A});\\, g, c\\big)',
   Econs: '\\ell\\big(F_\\theta(h,\\hat{A});\\, g, c\\big)',
-  Esum: 'E(\\hat{A}) = E_{\\mathrm{geometry}}\\big(K(\\hat{A})\\big) + \\ell\\big(F_\\theta(h,\\hat{A});\\, g, c\\big)',
-  piUpdate: '\\pi_{\\phi_k} \\;\\longrightarrow\\; \\pi_{\\phi_{k+1}}',
+  Esum: 'E(\\hat{A};\\, g, c) = E_{\\mathrm{geo}}\\big(K(\\hat{A});\\, g, c\\big) + \\ell\\big(F_\\theta(h,\\hat{A});\\, g, c\\big)',
+  update: 'v_\\varphi - \\lambda\\,\\mathcal{P}\\big(\\nabla_{\\hat{A}} E\\big)',
+  Pcal: '\\mathcal{P}',
+  piUpdate: '\\pi_{\\varphi_k} \\;\\longrightarrow\\; \\pi_{\\varphi_{k+1}}',
   eikonal: 'S(x)\\,\\lVert \\nabla T(x) \\rVert = 1',
   taylor: 'E(A + \\Delta A) \\approx E(A) + \\nabla E(A)^{\\top} \\Delta A',
-  energy1: 'E(A;\\, g, c) \\,=\\, E_{\\mathrm{geo}}(A;\\, c)',
+  energy1: 'E(A;\\, g, c) \\,=\\, E_{\\mathrm{geo}}\\big(K(A);\\, g, c\\big)',
   energy2: '+\\; \\ell\\big(F_\\theta(h, A);\\, g, c\\big)',
   Ftheta: 'F_\\theta',
-  gc: 'g,\\, c'
+  gc: 'g,\\, c',
+  // single symbols for the on-screen legends
+  sA: 'A',
+  sE: 'E',
+  sEgeo: 'E_{\\mathrm{geo}}',
+  sh: 'h',
+  sell: '\\ell',
+  sv: 'v_\\varphi',
+  slam: '\\lambda',
+  sgradA: '\\nabla_{\\hat{A}} E',
+  sT: 'T(x)',
+  sS: 'S(x)',
+  sx: 'x',
+  snegT: '-\\nabla T',
+  sdA: '\\Delta A',
+  sgradE: '\\nabla E(A)',
+  spi: '\\pi_\\varphi',
+  sk: 'k'
 };
 
 const adaptor = liteAdaptor(); RegisterHTMLHandler(adaptor);

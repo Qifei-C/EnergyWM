@@ -4,9 +4,28 @@
 16:9 · 1920×1080 · 30 fps · 总长 13:50.0（830 s）· 17 章 · 场景切换 0.5 s 交叉淡化。
 
 **主题**：已具备基本技能的小 VLA 在新的条件组合下，借助教师（几何 + 预测后果）先做对，把纠正学进去，再逐步不需要教师。
-“第一次：预测与推理；之后：便宜、可迁移的技能。” 片中所有优势均为希望通过实验建立的假设，不是结果；屏幕上的数字都来自引用文献并标注出处。
+“第一次：预测与推理；之后：便宜、可迁移的技能。” 片中的优势是计划中要用实验检验的；屏幕上的文献数字都标注出处与口径，我们自己的数值检查（第 06 章与附录）单独标注为我们的，并写明设置。
 
 **视觉**：深色“night lab”；台面是被照亮的舞台；字幕每次一行；列表为色条 + 文字（无胶囊气泡）；公式由 MathJax 排版。
+
+## 记号（全片统一，每个公式出现时旁边有符号说明）
+
+| 符号 | 含义 | 出现 |
+|---|---|---|
+| A | 动作块：机器人接下来的一段动作（H 步 × 每步 d 维，π0.5 为 50 步） | 05, 07, 09 |
+| τ | 去噪时间：0 = 纯噪声，1 = 生成完的动作块；guided window = 施加引导的 τ 区间 | 05 |
+| Â | 当前 τ 下对去噪完成的动作块的一步估计（clean estimate） | 05 |
+| v_φ / π_φ | VLA：去噪速度场 / 作为策略；φ = VLA 权重，k = 适应轮次 | 05, 11 |
+| F_θ(h, ·) | 动作条件世界模型，θ = 其权重；h = 当前观测与近期历史 | 05, 09 |
+| K | 机械臂运动学：动作块 → 夹爪与香蕉扫过的路径 | 05, 09 |
+| E_geo(K(A); g, c) | 几何能量：离障碍物的间隙 + 朝目标的进度 T；布局变化时重新计算，不训练 | 05, 09 |
+| ℓ(F_θ(h, A); g, c) | 从预测结果读出的代价（抓稳、滑动、接触） | 05, 09 |
+| g, c | 目标；约束 | 05, 09 |
+| E(A; g, c) | 总能量 = E_geo + ℓ，越低越好 | 05, 07, 09 |
+| λ, 𝒫 | 引导强度；对梯度做 normalize · clip · smooth | 05 |
+| ∇_Â E, ∇E(A), ΔA | 能量对动作块的梯度；修正量（沿 −∇E 一阶下降） | 05, 07 |
+| T(x), S(x), x | 程函方程 S(x)‖∇T(x)‖ = 1：T = 以速度 S 到目标的时间（目标处为 0）；S = 速度，膨胀障碍物内为 0（膨胀 4.5 cm），间隙 ≥ 6 cm 为 1，下限 0.15；x = 香蕉中心位置（竖直平面） | 06 |
+| −∇T | T 的最速下降方向，即朝目标的路 | 06, 09 |
 
 ## 01 · Title  `0:00.0 – 0:10.0` (10 s)
 
@@ -126,10 +145,11 @@
 **画面文字（原文）**
 
 - 副标题：The VLA’s own action chunk, being denoised；图例：VLA proposal（蓝）· corrected chunk — executed（橙）
-- τ 条：noise · guided window · actions · τ = …
+- τ 条：denoising time τ · noise · τ = 0 · guided window · τ = 1 · actions · τ = …
 - 3D 标签：VLA proposal · guidance update · corrected chunk
-- 20 s 起右侧双分支图（排版公式）：Â（clean estimate）→ K → Geometry（from sensors or simulation）: E_geometry(K(Â))；→ F_θ(h,·) → Consequences（trained action-conditioned model）: ℓ(F_θ(h, Â); g, c)；g, c — goal and constraints decide the score
-- 汇总：E(Â) = E_geometry(K(Â)) + ℓ(F_θ(h, Â); g, c) → 更新：v_θ − λ𝒫(∇E)；𝒫 normalize · clip · smooth — not the raw gradient
+- 20 s 起右侧双分支图（排版公式）：Â（clean estimate）→ K → Geometry（from sensors or simulation）: E_geo(K(Â); g, c)；→ F_θ(h,·) → Consequences（trained action-conditioned model）: ℓ(F_θ(h, Â); g, c)；g, c — goal and constraints decide the score
+- 汇总：E(Â; g, c) = E_geo(K(Â); g, c) + ℓ(F_θ(h, Â); g, c) → 更新：v_φ − λ𝒫(∇_Â E)；𝒫 normalize · clip · smooth — not the raw gradient
+- 符号说明（右下，随高亮切换）：20.6 s Â estimate of the finished chunk, at the current τ · A action chunk: a block of the robot’s next actions；27 s K arm kinematics: chunk → path of gripper and banana · E_geo clearance from obstacles + progress to the goal；34 s F_θ action-conditioned world model, with weights θ · h current observation and recent history · ℓ cost read out from the predicted outcome；41 s E total energy of the chunk: lower is better · g, c the goal; the constraints of this task；48 s v_φ the VLA’s denoising velocity, with weights φ · λ guidance strength · ∇_Â E gradient of the energy at the estimate
 - 高亮顺序：27 s 几何 · 34 s 后果 · 41 s 汇总 · 48 s 更新
 
 **字幕**
@@ -158,7 +178,7 @@
 
 - 副标题：Local energy: attract to the bowl + repel from the barrier → Geometric progress field T — computed numerically；图例：VLA proposal · corrected chunk — executed
 - 3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk
-- 15 s 公式卡：S(x)‖∇T(x)‖ = 1 — T = 0 at the goal（62% 卡片已移至附录）
+- 15 s 公式卡：S(x)‖∇T(x)‖ = 1；符号说明：T(x) time to the goal at speed S; T = 0 at the goal · S(x) speed: 0 in obstacles, 1 beyond 6 cm clearance · x position of the banana’s centre · 21.5 s −∇T steepest descent of T: the way to the goal（62% 卡片已移至附录）
 - 36–52 s 我们自己的数值检查（深色背板，前面的标签淡出）：OUR NUMERICAL CHECK — THE GEOMETRIC TARGET ALONE；Reached the goal without passing through an obstacle — nine blocked cases · same start and goal for every method
 - 四行实测条形（9 个有障碍样例）：No correction — the straight proposal 0/9（passes through the obstacle）· Local attraction + repulsion 0/9（stops in front of it）· Local energy + progress field T 7/9（two symmetric starts stall）· Random correction of the same size 0/9
 - 脚注：12 fixed synthetic cases (in the 3 unobstructed ones all four methods reach the goal) · ideal point motion, no robot · 20 mm voxels, 30 mm inflation（数据：trajectories-v2.json，按原始轨迹复核）
@@ -188,7 +208,7 @@
 - 副标题：The VLA’s proposal, and what the teacher says about it；16 s 图例
 - 卡片：A VERDICT — ✗ this action is bad
 - 卡片：A DIRECTION — keep the forward progress · add clearance over the barrier · ease the acceleration
-- 14 s 公式：E(A + ΔA) ≈ E(A) + ∇E(A)ᵀ ΔA
+- 14 s 公式：E(A + ΔA) ≈ E(A) + ∇E(A)ᵀ ΔA；14.6–15.8 s 符号说明：A the VLA’s proposed chunk, as one vector · ΔA a small change to the chunk · ∇E(A) where E rises fastest: step against it
 - 21 s：Corrections on states the student visits — as in DAgger (Ross et al., 2011)
 - 3D 标签：keep progress · more clearance · ease the acceleration · corrected chunk
 
@@ -240,7 +260,7 @@
 **画面文字（原文）**
 
 - 副标题：Separate how the world changes from what we want this time；图例：VLA proposal · corrected chunk — executed
-- 公式卡（排版）：E(A; g, c) = E_geo(A; c) + ℓ(F_θ(h, A); g, c)；F_θ what happens — reused；g, c what we want — swapped
+- 公式卡（排版）：E(A; g, c) = E_geo(K(A); g, c) + ℓ(F_θ(h, A); g, c)；F_θ what happens — reused；g, c what we want — swapped；E_geo recomputed per layout — no training
 - 列表：1 Barrier removed · 2 Top closed · 3 Taller barrier · 4 New goal, cup forbidden
 - 3D 标签：−∇T · VLA proposal · corrected chunk · side opening · new goal · do not touch
 - 44 s：WHEN IT FAILS, ASK WHERE — goal grounding · geometry · contact rules · consequence prediction
@@ -295,8 +315,8 @@
 **画面文字（原文）**
 
 - Two students：Energy student — learns to evaluate cheaply；Policy student — the VLA — learns to act without the evaluator
-- 闭环（14 / 15 / 16 / 21 / 28 s）：1 VLA proposal — the current policy → 2 Teacher correction — guided by the energy → 3 Execute & observe — keep only verified corrections → 4 Update the VLA — native objective + old-skill replay → 5 Test, guidance off — held-out starts · no T（虚线返回：next round）
-- 21.5 s：公式 π_φk → π_φk+1；data: execution-verified corrections + replay of old skills
+- 闭环（14 / 15 / 16 / 21 / 28 s）：1 VLA proposal — the current policy → 2 Teacher correction — guided by the energy → 3 Execute & observe — keep only verified corrections → 4 Update the VLA — own objective + old-skill replay → 5 Test, guidance off — held-out starts · no T（虚线返回：next round）
+- 21.5 s：公式 π_φk → π_φk+1；data: execution-verified corrections + replay of old skills；符号说明：π_φ the VLA as a policy, with weights φ · k adaptation round
 - 30 s 分屏：Teacher off: before vs. after adaptation；Before adaptation — teacher off · held-out start；After adaptation — teacher off · the same held-out start
 - 条件标签：Held-out condition 1 · a higher barrier → Held-out condition 2 · grip near one end；3D 标签：collision
 - 58 s：Making the correction cheaper is not enough. / The policy must learn to need it less.

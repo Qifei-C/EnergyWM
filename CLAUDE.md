@@ -17,6 +17,7 @@ charts are not allowed; illustrative animations are labelled where they depict a
 
 ## Conventions
 - World is **Z-up**, metres. Counter top z = 0.92. Field coordinates: `fx = x_world − X_OFF` (X_OFF = −0.25), `fz = z_world − 0.92`; object plane y = 0.22.
+- Notation, one meaning per symbol: the VLA is v_φ / π_φ (weights φ), the world model F_θ (weights θ); E(A; g, c) = E_geo(K(A); g, c) + ℓ(F_θ(h, A); g, c). Every formula on screen gets a symbol legend next to it (`symLegend` / `symInline` in core.js); the full table is in `storyboard.md`.
 - Determinism: no `Date.now()`/`Math.random()` in frame code; use `core.util.rng(seed)`. IK is precomputed once at init.
 - Keep a scene's drawing inside its own function; crossfades (0.5 s) are composited by the engine.
 - Captions: `[start, end, text]` lists per scene, ONE short line each (≤ ~80 chars), English, no claims of results. Keep on-screen text to titles, formulas and short labels; split dense ideas into beats (`core.util.TL`) rather than adding text.

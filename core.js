@@ -520,7 +520,8 @@
   }
   // typeset formulas (math.js → decoded SVG images, tinted per colour and cached); y = baseline
   let MATH = null, mkCanvas = null; const mathCache = {};
-  const MATH_FALLBACK = { vtheta: 'vθ', Ahat: 'Â', KAhat: 'K(Â)', EKAhat: 'E(K(Â))', guided: 'vθ − λ∇E', eikonal: 'S(x) ‖∇T(x)‖ = 1', taylor: 'E(A + ΔA) ≈ E(A) + ∇E(A)ᵀΔA', energy1: 'E(A; g, c) = Egeo(A; c)', energy2: '+ ℓ(Fθ(h, A); g, c)', Ftheta: 'Fθ', gc: 'g, c', update: 'vθ − λ𝒫(∇E)', Pcal: '𝒫', Kmap: 'K', Fmap: 'Fθ(h, ·)', EgeoK: 'Egeometry(K(Â))', Econs: 'ℓ(Fθ(h, Â); g, c)', Esum: 'E(Â) = Egeometry(K(Â)) + ℓ(Fθ(h, Â); g, c)', piUpdate: 'π(φk) → π(φk+1)' };
+  const MATH_FALLBACK = { Ahat: 'Â', Kmap: 'K', Fmap: 'Fθ(h, ·)', EgeoK: 'Egeo(K(Â); g, c)', Econs: 'ℓ(Fθ(h, Â); g, c)', Esum: 'E(Â; g, c) = Egeo(K(Â); g, c) + ℓ(Fθ(h, Â); g, c)', update: 'vφ − λ𝒫(∇E)', Pcal: '𝒫', piUpdate: 'π(φk) → π(φk+1)', eikonal: 'S(x) ‖∇T(x)‖ = 1', taylor: 'E(A + ΔA) ≈ E(A) + ∇E(A)ᵀΔA', energy1: 'E(A; g, c) = Egeo(K(A); g, c)', energy2: '+ ℓ(Fθ(h, A); g, c)', Ftheta: 'Fθ', gc: 'g, c',
+    sA: 'A', sE: 'E', sEgeo: 'Egeo', sh: 'h', sell: 'ℓ', sv: 'vφ', slam: 'λ', sgradA: '∇E', sT: 'T(x)', sS: 'S(x)', sx: 'x', snegT: '−∇T', sdA: 'ΔA', sgradE: '∇E(A)', spi: 'πφ', sk: 'k' };
   function setMath(m) { MATH = m; }
   function mathText(ctx, key, x, y, o) {
     o = o || {};
@@ -538,6 +539,33 @@
     ctx.drawImage(cv, dx - 2, y + vb[1] * sc - 2);
     ctx.restore();
     return w;
+  }
+  function mathWidth(key, size) { const m = MATH && MATH[key]; return m && mkCanvas ? m.vb[2] * size / 1000 : 0.6 * size * (MATH_FALLBACK[key] || key).length; }
+  // symbol legend: one row per symbol — typeset symbol, then a short plain-English definition.
+  // rows: [key, definition, t0?]; a row with t0 fades in at u = t0 (o.u required then).
+  function symLegend(ctx, x, y, rows, o) {
+    o = o || {};
+    const ms = o.msize || 22, ts = o.tsize || 19, lh = o.lh || 34, sw = o.symW || 96;
+    rows.forEach(([key, def, t0], i) => {
+      const a = t0 == null ? 1 : ramp(o.u, t0, t0 + 0.5); if (a <= 0) return;
+      ctx.save(); ctx.globalAlpha *= a;
+      mathText(ctx, key, x, y + i * lh, { size: ms, color: o.mcolor || C.ink });
+      text(ctx, def, x + sw, y + i * lh - 1, { size: ts, color: o.color || C.mute });
+      ctx.restore();
+    });
+  }
+  // one centred line: [key, definition] pairs separated by a dot
+  function symInline(ctx, items, cx, y, o) {
+    o = o || {};
+    const ms = o.msize || 24, ts = o.tsize || 20, gap = 10, sep = 34;
+    font(ctx, 400, ts, SANS);
+    const ws = items.map(([k, d]) => [mathWidth(k, ms), ctx.measureText(d).width]);
+    let x = cx - (ws.reduce((a, [m, t]) => a + m + gap + t, 0) + sep * (items.length - 1)) / 2;
+    items.forEach(([k, d], i) => {
+      mathText(ctx, k, x, y, { size: ms, color: o.mcolor || C.ink }); x += ws[i][0] + gap;
+      text(ctx, d, x, y - 1, { size: ts, color: o.color || C.mute }); x += ws[i][1];
+      if (i < items.length - 1) { text(ctx, '·', x + sep / 2, y - 1, { size: ts, color: C.faint, align: 'center' }); x += sep; }
+    });
   }
   // section label over 3D: short accent bar + text
   function subhead(ctx, s, x, y, o) {
@@ -950,8 +978,9 @@
     ctx.fillStyle = rgba(C.orange, 0.35); ctx.fillRect(bx + bw * 0.3, by - 6, bw * 0.5, 12);
     ctx.fillStyle = C.blue; rrect(ctx, bx, by - 6, Math.max(bw * tau, 12), 12, 6); ctx.fill();
     dot(ctx, bx + bw * tau, by, 11, C.ink);
-    haloText(ctx, 'noise', bx, by + 36, { size: 21, color: C.mute });
-    haloText(ctx, 'actions', bx + bw, by + 36, { size: 21, color: C.mute, align: 'right' });
+    haloText(ctx, 'denoising time τ', bx, by - 20, { size: 20, weight: 600, color: C.mute });
+    haloText(ctx, 'noise · τ = 0', bx, by + 36, { size: 21, color: C.mute });
+    haloText(ctx, 'τ = 1 · actions', bx + bw, by + 36, { size: 21, color: C.mute, align: 'right' });
     haloText(ctx, 'guided window', bx + bw * 0.55, by - 20, { size: 20, weight: 600, color: C.orange, align: 'center' });
     haloText(ctx, `τ = ${tau.toFixed(2)}`, bx + bw * 0.55, by + 36, { size: 21, color: C.ink, align: 'center' });
     if (pa > 0) {
@@ -987,6 +1016,16 @@
       const pw = mathText(ctx, 'Pcal', 1300, 756, { size: 20, color: C.faint });
       text(ctx, '  normalize · clip · smooth — not the raw gradient', 1300 + pw, 756, { size: 17, color: C.faint });
       ctx.restore();
+      // symbol definitions, one beat per highlighted step
+      [[G.pipe + 0.6, G.geo, [['Ahat', 'estimate of the finished chunk, at the current τ'], ['sA', 'action chunk: a block of the robot’s next actions']]],
+        [G.geo, G.cons, [['Kmap', 'arm kinematics: chunk → path of gripper and banana'], ['sEgeo', 'clearance from obstacles + progress to the goal']]],
+        [G.cons, G.sum, [['Ftheta', 'action-conditioned world model, with weights θ'], ['sh', 'current observation and recent history'], ['sell', 'cost read out from the predicted outcome']]],
+        [G.sum, G.upd, [['sE', 'total energy of the chunk: lower is better'], ['gc', 'the goal; the constraints of this task']]],
+        [G.upd, 99, [['sv', 'the VLA’s denoising velocity, with weights φ'], ['slam', 'guidance strength'], ['sgradA', 'gradient of the energy at the estimate']]]
+      ].forEach(([a, b, rows]) => {
+        const al = fade(u, a, a + 0.4, b - 0.3, b); if (al <= 0) return;
+        ctx.save(); ctx.globalAlpha *= al; symLegend(ctx, 1140, 826, rows, { symW: 92 }); ctx.restore();
+      });
     }
     captions(ctx, u, [
       [0, 7, 'How the teacher helps: it corrects the VLA’s own action chunk.'],
@@ -1013,9 +1052,10 @@
     legendProposal(ctx, 80, 160, ramp(u, T.prop, T.prop + 0.8) * keep);
     if (u > T.T + 1 && keep > 0) {
       ctx.save(); appear(ctx, ramp(u, T.T + 1, T.T + 1.8) * keep);
-      panelBox(ctx, 1360, 170, 480, 170, { stroke: C.teal });
-      mathText(ctx, 'eikonal', 1600, 250, { size: 46, align: 'center', color: C.ink });
-      text(ctx, 'T = 0 at the goal', 1600, 300, { size: 23, align: 'center', color: C.mute });
+      panelBox(ctx, 1290, 170, 560, 276, { stroke: C.teal });
+      mathText(ctx, 'eikonal', 1570, 246, { size: 46, align: 'center', color: C.ink });
+      symLegend(ctx, 1320, 306, [['sT', 'time to the goal at speed S; T = 0 at the goal'], ['sS', 'speed: 0 in obstacles, 1 beyond 6 cm clearance'],
+        ['sx', 'position of the banana’s centre'], ['snegT', 'steepest descent of T: the way to the goal', T.grad[0]]], { u, symW: 92, tsize: 18 });
       ctx.restore();
     }
     if (u > T.check) numericCheck(ctx, u - T.check);
@@ -1091,11 +1131,13 @@
     if (u > T.eq) {
       ctx.save(); appear(ctx, ramp(u, T.eq, T.eq + 0.8));
       mathText(ctx, 'taylor', 1470, 672, { size: 42, color: C.ink, align: 'center' });
+      symLegend(ctx, 1160, 724, [['sA', 'the VLA’s proposed chunk, as one vector', T.eq + 0.6], ['sdA', 'a small change to the chunk', T.eq + 1.2],
+        ['sgradE', 'where E rises fastest: step against it', T.eq + 1.8]], { u, symW: 100 });
       ctx.restore();
     }
     if (u > T.dagger) {
       ctx.save(); appear(ctx, ramp(u, T.dagger, T.dagger + 0.8));
-      text(ctx, 'Corrections on states the student visits — as in DAgger (Ross et al., 2011)', 1470, 730, { size: 19, color: C.faint, align: 'center' });
+      text(ctx, 'Corrections on states the student visits — as in DAgger (Ross et al., 2011)', 1470, 852, { size: 19, color: C.faint, align: 'center' });
       ctx.restore();
     }
     captions(ctx, u, [
@@ -1144,16 +1186,17 @@
     legendProposal(ctx, 80, 160, ramp(u, TL.intervene.phase[0], TL.intervene.phase[0] + 0.8));
     // formula card (whole scene)
     ctx.save(); appear(ctx, ramp(u, 0.5, 1.3));
-    panelBox(ctx, 1320, 170, 520, 200, {});
+    panelBox(ctx, 1320, 170, 520, 230, {});
     mathText(ctx, 'energy1', 1350, 230, { size: 32, color: C.ink });
     mathText(ctx, 'energy2', 1392, 280, { size: 32, color: C.ink });
     const fw = mathText(ctx, 'Ftheta', 1352, 328, { size: 24, color: C.tealDeep }); text(ctx, '  what happens — reused', 1352 + fw, 327, { size: 20, color: C.tealDeep });
     const gw = mathText(ctx, 'gc', 1352, 358, { size: 24, color: C.orangeDeep }); text(ctx, '  what we want — swapped', 1352 + gw, 357, { size: 20, color: C.orangeDeep });
+    const ew = mathText(ctx, 'sEgeo', 1352, 388, { size: 24, color: C.orangeDeep }); text(ctx, '  recomputed per layout — no training', 1352 + ew, 387, { size: 20, color: C.orangeDeep });
     ctx.restore();
     if (u < T.diag) {
       const step = u < ph[0] ? -1 : u < ph[1] ? 0 : u < ph[2] ? 1 : u < T.goal ? 2 : 3;
       ['Barrier removed', 'Top closed', 'Taller barrier', 'New goal, cup forbidden'].forEach((s, i) => {
-        const y = 400 + i * 76, on = i === step, done = i < step;
+        const y = 426 + i * 74, on = i === step, done = i < step;
         ctx.save(); ctx.globalAlpha = ramp(u, 1 + i * 0.3, 1.6 + i * 0.3) * (1 - ramp(u, T.diag - 0.5, T.diag));
         panelBox(ctx, 1320, y, 520, 62, { r: 12, stroke: on ? C.teal : null, hot: on, fill: on ? 'rgba(18,58,55,0.92)' : undefined });
         ctx.globalAlpha *= on || done ? 1 : 0.5;
@@ -1163,17 +1206,17 @@
       });
     } else {
       ctx.save(); appear(ctx, ramp(u, T.diag, T.diag + 0.7));
-      panelBox(ctx, 1320, 400, 520, 300, { stroke: C.orange });
-      tag(ctx, 'WHEN IT FAILS, ASK WHERE', 1350, 444, C.orangeDeep);
+      panelBox(ctx, 1320, 426, 520, 300, { stroke: C.orange });
+      tag(ctx, 'WHEN IT FAILS, ASK WHERE', 1350, 470, C.orangeDeep);
       ['goal grounding', 'geometry', 'contact rules', 'consequence prediction'].forEach((s, i) => {
         ctx.save(); ctx.globalAlpha *= ramp(u, T.diag + 0.4 + i * 0.5, T.diag + 0.9 + i * 0.5);
-        chip(ctx, s, 1350 + (i % 2) * 236, 474 + Math.floor(i / 2) * 76, { col: C.orange, size: 20 });
+        chip(ctx, s, 1350 + (i % 2) * 236, 500 + Math.floor(i / 2) * 76, { col: C.orange, size: 20 });
         ctx.restore();
       });
       if (u > T.agf) {
         ctx.globalAlpha *= ramp(u, T.agf, T.agf + 0.6);
-        text(ctx, 'Baseline: equally informed vector guidance', 1350, 652, { size: 20, color: C.ink });
-        text(ctx, 'AGF, arXiv 2609.34944', 1350, 680, { size: 17, color: C.faint });
+        text(ctx, 'Baseline: equally informed vector guidance', 1350, 678, { size: 20, color: C.ink });
+        text(ctx, 'AGF, arXiv 2609.34944', 1350, 706, { size: 17, color: C.faint });
       }
       ctx.restore();
     }
@@ -1245,7 +1288,7 @@
         ctx.restore();
       });
       const nodes = [['VLA proposal', 'the current policy', C.blue, 14], ['Teacher correction', 'guided by the energy', C.orange, 15], ['Execute & observe', 'keep only verified corrections', C.green, 16],
-        ['Update the VLA', 'native objective + old-skill replay', C.teal, 21], ['Test, guidance off', 'held-out starts · no T', C.green, 28]];
+        ['Update the VLA', 'own objective + old-skill replay', C.teal, 21], ['Test, guidance off', 'held-out starts · no T', C.green, 28]];
       nodes.forEach(([t, s, col, t0], i) => {
         const x = 100 + i * 352, y = 420, w = 320, h = 128;
         ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.7), 10);
@@ -1265,6 +1308,7 @@
       ctx.save(); ctx.globalAlpha = ramp(u, 21.5, 22.3);
       mathText(ctx, 'piUpdate', 960, 712, { size: 52, align: 'center', color: C.ink });
       text(ctx, 'data: execution-verified corrections + replay of old skills', 960, 764, { size: 22, color: C.mute, align: 'center' });
+      symInline(ctx, [['spi', 'the VLA as a policy, with weights φ'], ['sk', 'adaptation round']], 960, 812);
       ctx.restore();
     } else if (u < P.line) {
       topWash(ctx, 300, 0.94);
