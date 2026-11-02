@@ -675,7 +675,7 @@
     direct: { keep: 8, lift: 10, ease: 12, bend: [16, 20], eq: 14, dagger: 21 },
     intervene: { phase: [8, 16, 24], goal: 32, goalCut: [33, 37], diag: 44, agf: 50 },
     policy: { split: 30, c1: [31.5, 34, 37.5], c2: 44, c2m: [45.5, 48, 51.5], line: 58 },
-    sim2real: { miss: 0.5, geo: 20, fix: 34, exec: 39, cards: 50, open: 62 },
+    sim2real: { miss: 0.5, geo: 20, geoOut: 48, fix: 34, exec: 39, cards: 50, open: 62 },
     invest: { A: 8, B: 15, C: 22, measure: 28 },
     levels: { test: 30, rows: 38, limit: 52 },
     appendix: {}
@@ -1311,12 +1311,12 @@
       heading(ctx, 'From simulation to a real kitchen', 100, 150, 42, ramp(u, 0, 0.8));
       ctx.save(); ctx.globalAlpha = ramp(u, 1, 2) * (1 - ramp(u, S.geo - 0.5, S.geo)); spaced(ctx, 'ILLUSTRATIVE FAILURE', 1150, 150, { size: 16, weight: 600, color: C.orangeDeep, spacing: 2.2 }); ctx.restore();
       ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(959, 190, 2, 890); ctx.restore();
-      const g = ramp(u, S.geo + 0.5, S.geo + 1.5);
+      const g = ramp(u, S.geo + 0.9, S.geo + 1.5), g0 = 1 - ramp(u, S.geo, S.geo + 0.5);
       [[0, 'Simulation', 'where the VLA was trained', C.blue], [960, 'A new kitchen', 'new texture, light, background — and camera pose', C.orange]].forEach(([x, title, sub, col]) => {
         ctx.save(); ctx.globalAlpha = ramp(u, 0.6, 1.4);
         ctx.fillStyle = col; rrect(ctx, x + 60, 206, 4, 54, 2); ctx.fill();
         haloText(ctx, title, x + 80, 232, { size: 30, weight: 600, color: col });
-        haloText(ctx, sub, x + 80, 262, { size: 18, color: C.mute, alpha: 1 - g });
+        haloText(ctx, sub, x + 80, 262, { size: 18, color: C.mute, alpha: g0 });
         haloText(ctx, 'geometry only: surface normals on a metric grid', x + 80, 262, { size: 18, color: C.tealDeep, alpha: g });
         ctx.restore();
       });

@@ -293,12 +293,14 @@
       // dropped, so the view is the same whatever the textures, lights or clutter
       this.geo = 0;
       this.geoMat = new THREE.ShaderMaterial({
-        uniforms: { opacity: { value: 0 } },
+        uniforms: { opacity: { value: 0 }, fIn: { value: 8 }, fOut: { value: -8 } },
         vertexShader: 'varying vec3 vW; varying vec3 vN; void main() { vW = (modelMatrix * vec4(position, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * normal); vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition; }', // same depth as three.js materials
         fragmentShader: [
-          'uniform float opacity; varying vec3 vW; varying vec3 vN;',
+          'uniform float opacity; uniform float fIn; uniform float fOut; varying vec3 vW; varying vec3 vN;',
           'float gl1(float v, float s) { float f = v / s; float d = abs(fract(f - 0.5) - 0.5); float w = max(fwidth(f), 1e-3); return (1.0 - smoothstep(0.0, w * 1.5, d)) * (1.0 - smoothstep(0.10, 0.30, w)); }',
           'void main() {',
+          // cut in / cut out: a scan front sweeping along world x (left → right on screen) turns the scene into geometry and back
+          '  if (vW.x > fIn || vW.x < fOut) discard;',
           // surface normal in the world (robot) frame → classic normal-map colours, slightly toned for the dark film
           '  vec3 n = normalize(vN);',
           // world-anchored, but mapped like a familiar normal pass seen from the front: x → red, up → green, toward the viewer (−y) → blue
@@ -307,6 +309,8 @@
           // a metric grid (5 cm) laid over every surface, fading where it would alias
           '  float g = max(max(gl1(vW.x, 0.05), gl1(vW.y, 0.05)), gl1(vW.z, 0.05));',
           '  c *= 1.0 - 0.5 * g;',
+          '  float edge = max(exp(-abs(vW.x - fIn) / 0.012), exp(-abs(vW.x - fOut) / 0.012));',
+          '  c = mix(c, vec3(0.80, 1.0, 0.96), 0.9 * edge);',
           '  gl_FragColor = vec4(c, opacity);',
           '}'].join('\n'),
         transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, extensions: { derivatives: true }
@@ -321,11 +325,19 @@
       this.scene.background.setHex(r ? 0x2b2722 : BG); this.scene.fog.color.setHex(r ? 0x2b2722 : BG);
       this.clutter.visible = !!r;
     }
+    // sim-to-real chapter: scan fronts along world x — cut into the geometry view, then cut out at the end of the part
+    scanGeo(u, S) {
+      const a = S.geo, b = S.geoOut, d = 1.8, x0 = -0.8, x1 = 1.6; // the visible part of the kitchen
+      if (u < a || u > b + d) { this.geo = 0; return; }
+      this.geo = 1;
+      this.geoIn = u < a + d ? lerp(x0, x1, sramp(u, a, a + d)) : 8;
+      this.geoOut = u < b ? -8 : lerp(x0, x1, sramp(u, b, b + d));
+    }
     renderGeo(cam) {
       if (!(this.geo > 0.001)) return;
       const r = this.renderer, S = this.scene, ov = this.ov.visible, pv = this.plane.visible, tv = this.topPlane.visible, bg = S.background;
       this.ov.visible = false; this.plane.visible = false; this.topPlane.visible = false; S.background = null;
-      S.overrideMaterial = this.geoMat; this.geoMat.uniforms.opacity.value = this.geo;
+      S.overrideMaterial = this.geoMat; const U = this.geoMat.uniforms; U.opacity.value = this.geo; U.fIn.value = this.geoIn == null ? 8 : this.geoIn; U.fOut.value = this.geoOut == null ? -8 : this.geoOut;
       const au = r.autoClear, su = r.shadowMap.autoUpdate; r.autoClear = false; r.shadowMap.autoUpdate = false;
       r.render(S, cam);
       r.autoClear = au; r.shadowMap.autoUpdate = su; S.overrideMaterial = null; S.background = bg;
@@ -679,7 +691,7 @@
       this.roof.visible = false; this.ceiling.visible = false; this.bananaB.visible = false; this.bowl2.visible = false; this.cup.visible = false;
       this.bowl.material.opacity = 1; this.bowl.visible = true; this.bowl.scale.setScalar(1);
       this.barrier.visible = true; this.barrier.scale.set(1, 1, 1); this.barrier.position.set((WORLD.barrierX0 + WORLD.barrierX1) / 2 + X_OFF, 0.225, COUNTER_Z + WORLD.barrierH / 2);
-      this.setOpacity(1); this.split = false; this.halves = null; this.geo = 0; this.setLook(0);
+      this.setOpacity(1); this.split = false; this.halves = null; this.geo = 0; this.geoIn = null; this.geoOut = null; this.setLook(0);
     }
     label(pos, text, color, o) { this.labels.push(Object.assign({ pos, text, color }, o || {})); }
     flash(p, u0, u) { // collision ring at the barrier, for field position p
@@ -1020,7 +1032,7 @@
             // right, new kitchen: the same VLA closes 6 cm beside the banana and lifts nothing
             const R = play(this.qMiss, this.trajMiss, [[1.5, 0], [3, 10], [3.6, 10], [5, 20]], t);
             const fR = t < 3 ? 0.04 : t < 3.6 ? lerp(0.04, 0.001, (t - 3) / 0.6) : 0.001;
-            this.geo = sramp(u, S.geo, S.geo + 2);
+            this.scanGeo(u, S);
             const proj3 = v => this.project(v, this.camera3, W2, W2);
             if (t > 3.8 && u < S.geo) { const px = proj3(fieldToWorld(WORLD.start.x - 0.06, 0.22)); if (px) this.label(null, 'misses the grasp', LC.red, { px, size: 26, weight: 700, align: 'center', alpha: ramp(t, 3.8, 4.4) * (1 - ramp(u, S.geo - 0.6, S.geo)) }); }
             this.halves = [
@@ -1030,7 +1042,7 @@
           } else {
             // full frame, the new kitchen with the geometry layer: the VLA's proposal (blue) → correction (orange) → execution
             this.lookFrom(0.78, -1.62, 1.55, 0.42, 0.22, 1.08, 32);
-            this.setLook(1); this.geo = 1 - sramp(u, S.exec + 7, S.exec + 9.5); // the teacher's view, then back to the real kitchen
+            this.setLook(1); this.scanGeo(u, S); // the teacher's view, then a cut back to the real kitchen
             const t = u - S.exec;
             const F = play(this.qFix, this.trajFix, [[0, 0], [1.2, 6], [2.4, 16], [2.8, 16], [4.0, 26], [8.5, 56], [10, 66]], t);
             const ff = t < 2.4 ? 0.04 : t < 2.8 ? lerp(0.04, 0.018, (t - 2.4) / 0.4) : t < 10 ? 0.018 : t < 10.5 ? lerp(0.018, 0.04, (t - 10) / 0.5) : 0.04, held = t >= 2.6 && t < 10.2;
@@ -1040,7 +1052,7 @@
             if (pa > 0) { this.showProp([fieldToWorld(MISS, 0.13), fieldToWorld(MISS, 0.07), fieldToWorld(MISS, BANANA_HALF_H + 0.01)], pa); this.label(fieldToWorld(MISS - 0.02, 0.05), 'VLA proposal', LC.blueDeep, { size: 22, align: 'right', alpha: pa }); }
             const ca = ramp(u, S.fix + 2.5, S.fix + 3.3) * gone;
             if (ca > 0) { this.showChunk(this.trajFix.slice(0, 17), ca, sramp(u, S.fix + 2.5, S.fix + 4)); this.label(fieldToWorld(WORLD.start.x + 0.05, 0.17), 'corrected chunk', LC.orangeDeep, { size: 22, alpha: ca }); }
-            if (u > S.fix + 0.5) this.label(fieldToWorld(0.66, 0.34), 'geometry layer on — the teacher’s view', LC.tealDeep, { size: 22, align: 'center', alpha: ramp(u, S.fix + 0.5, S.fix + 1.3) * (1 - ramp(u, S.cards - 1, S.cards)) });
+            if (u > S.fix + 0.5) this.label(fieldToWorld(0.66, 0.34), 'geometry view — what the teacher sees', LC.tealDeep, { size: 22, align: 'center', alpha: ramp(u, S.fix + 0.5, S.fix + 1.3) * (1 - ramp(u, S.geoOut, S.geoOut + 0.5)) });
           }
           break;
         }
