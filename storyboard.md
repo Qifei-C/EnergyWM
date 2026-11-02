@@ -125,10 +125,10 @@
 **画面文字（原文）**
 
 - 副标题：The VLA’s own action chunk, being denoised；图例：VLA proposal（蓝）· corrected chunk — executed（橙）
-- τ 条：noise · guided window (proposed config) · actions · τ = …
+- τ 条：noise · guided window · actions · τ = …
 - 3D 标签：VLA proposal · guidance update · corrected chunk
 - 20 s 起右侧双分支图（排版公式）：Â（clean estimate）→ K → Geometry（from sensors or simulation）: E_geometry(K(Â))；→ F_θ(h,·) → Consequences（trained action-conditioned model）: ℓ(F_θ(h, Â); g, c)；g, c — goal and constraints decide the score
-- 汇总：E(Â) = E_geometry(K(Â)) + ℓ(F_θ(h, Â); g, c) → 更新：v_θ − λ𝒫(∇E)；𝒫 normalize · clip · smooth (proposed) — not the raw gradient
+- 汇总：E(Â) = E_geometry(K(Â)) + ℓ(F_θ(h, Â); g, c) → 更新：v_θ − λ𝒫(∇E)；𝒫 normalize · clip · smooth — not the raw gradient
 - 高亮顺序：27 s 几何 · 34 s 后果 · 41 s 汇总 · 48 s 更新
 
 **字幕**
@@ -137,7 +137,7 @@
 |---|---|---|
 | 3:30.0 | 3:37.0 | How the teacher helps: it corrects the VLA’s own action chunk. |
 | 3:37.0 | 3:44.0 | Blue: what the VLA proposes. Orange: the corrected chunk the robot executes. |
-| 3:44.0 | 3:50.0 | π0.5 denoises in 10 steps, GR00T N1.6 in 4; guidance acts mid-way (proposed). |
+| 3:44.0 | 3:50.0 | π0.5 denoises in 10 steps, GR00T N1.6 in 4; guidance acts mid-way. |
 | 3:50.0 | 3:57.0 | From the clean estimate, two branches: geometry and predicted consequences. |
 | 3:57.0 | 4:04.0 | Geometry comes from sensors or simulation, through the arm’s kinematics. |
 | 4:04.0 | 4:11.0 | Consequences come from a trained action-conditioned model, read out as costs. |
@@ -151,12 +151,12 @@
 
 - 机械臂沿直线挪到停滞点后原地抖动；局部能量 E 切片 + attract / repel / net 箭头。
 - 14 s 切换为数值计算的测地进度场 T（波前 14.8–20.5 s，−∇T 21.5 s）。23 s 蓝色 VLA 原提案（直线穿过挡板）；25 s 橙色修正动作块（形状取自 −∇T 流线并保证香蕉全长净空）。
-- 27–32 s 机械臂执行橙色修正动作块，标注 intended guided behaviour — to be verified。
+- 27–32 s 机械臂执行橙色修正动作块。
 
 **画面文字（原文）**
 
 - 副标题：Local energy: attract to the bowl + repel from the barrier → Geometric progress field T — computed numerically；图例：VLA proposal · corrected chunk — executed
-- 3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk · intended guided behaviour — to be verified
+- 3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk
 - 15 s 公式卡：S(x)‖∇T(x)‖ = 1 — T = 0 at the goal（62% 卡片已移至附录）
 
 **字幕**
@@ -167,7 +167,7 @@
 | 4:37.0 | 4:44.0 | …cancels in front of the barrier: no upward push. It stalls. |
 | 4:44.0 | 4:51.0 | A geometric progress field T, computed numerically, measures the way to the goal. |
 | 4:51.0 | 4:58.0 | The field evaluates progress; the VLA still proposes the motion. |
-| 4:58.0 | 5:06.0 | The correction lifts the chunk over the barrier — to be verified in execution. |
+| 4:58.0 | 5:06.0 | The correction lifts the chunk over the barrier, and the robot executes it. |
 
 ## 07 · A direction, not a verdict  `5:06.0 – 5:46.0` (40 s)
 
@@ -288,7 +288,7 @@
 
 - Two students：Energy student — learns to evaluate cheaply；Policy student — the VLA — learns to act without the evaluator
 - 闭环（14 / 15 / 16 / 21 / 28 s）：1 VLA proposal — the current policy → 2 Teacher correction — guided by the energy → 3 Execute & observe — keep only verified corrections → 4 Update the VLA — native objective + old-skill replay → 5 Test, guidance off — held-out starts · no T（虚线返回：next round）
-- 21.5 s：PROPOSED — TRAINING ALGORITHM NOT FIXED；公式 π_φk → π_φk+1；data: execution-verified corrections + replay of old skills
+- 21.5 s：公式 π_φk → π_φk+1；data: execution-verified corrections + replay of old skills
 - 30 s 分屏：Teacher off: before vs. after adaptation；Before adaptation — teacher off · held-out start；After adaptation — teacher off · the same held-out start
 - 条件标签：Held-out condition 1 · a higher barrier → Held-out condition 2 · grip near one end；3D 标签：collision
 - 58 s：Making the correction cheaper is not enough. / The policy must learn to need it less.
@@ -300,7 +300,7 @@
 | 7:58.0 | 8:05.0 | Two kinds of learning. The energy student learns to evaluate cheaply. |
 | 8:05.0 | 8:12.0 | The policy student — the VLA itself — must learn to act without it. |
 | 8:12.0 | 8:19.0 | Execute the corrected chunk and observe the outcome; keep only what works. |
-| 8:19.0 | 8:26.0 | Update the VLA with its own objective, replaying old skills — proposed. |
+| 8:19.0 | 8:26.0 | Update the VLA with its own objective, replaying old skills. |
 | 8:26.0 | 8:34.0 | Then test with all guidance off, from starts never used in adaptation. |
 | 8:34.0 | 8:42.0 | Left: before adaptation. Right: after. Same held-out start, no teacher. |
 | 8:42.0 | 8:50.0 | A second held-out condition: the grip is near one end of the banana. |
@@ -313,7 +313,7 @@
 **3D 动作**
 
 - 机械臂循环执行越障搬运；T 切片与 −∇T 可见；状态 A 香蕉周围大光环（JEPA predictor），B 缩小（light module）。
-- 22–24 s 进入状态 C：切片、箭头、光环淡出，机械臂不透明独立执行，标注 target behaviour — to be tested。
+- 22–24 s 进入状态 C：切片、箭头、光环淡出，机械臂不透明独立执行。
 
 **画面文字（原文）**
 
@@ -342,8 +342,8 @@
 **画面文字（原文）**
 
 - 0–30 s 阶梯：LEVEL 1 Helped on a new combination；LEVEL 2 One teacher, unseen combinations；LEVEL 3 VLA alone, from new starts（first paper’s endpoint）；LEVEL 4 Each next task needs less help
-- 30 s：Level 3, as a test — 表头 METHOD · ADAPTATION BUDGET · AT TEST · STARTS · SUCCESS
-- 行：Direct fine-tuning / Imitate the corrected actions / Proposed update (verified corrections · gradient-informed)；每行：equal · all guidance off · held-out · to be measured（不画曲线）
+- 30 s：Level 3, as a test — 表头 METHOD · ADAPTATION BUDGET · AT TEST · STARTS
+- 行：Direct fine-tuning / Imitate the corrected actions / Teacher-guided update (verified corrections · gradient-informed)；每行：equal · all guidance off · held-out（不画曲线）
 - 52 s：LIMIT — The student must observe what decides the right action.
 
 **字幕**
@@ -355,8 +355,8 @@
 | 9:58.0 | 10:06.0 | Level 3: after a little guidance, the VLA alone succeeds from new starts. |
 | 10:06.0 | 10:14.0 | Level 4: each related task needs less teaching than the one before. |
 | 10:14.0 | 10:22.0 | Level 3 as a test: the same adaptation budget for every method. |
-| 10:22.0 | 10:30.0 | Direct fine-tuning, imitating corrected actions, and the proposed update. |
-| 10:30.0 | 10:36.0 | All guidance off, held-out starts. Success is to be measured — no curves yet. |
+| 10:22.0 | 10:30.0 | Direct fine-tuning, imitating corrected actions, and the teacher-guided update. |
+| 10:30.0 | 10:36.0 | Same budget, all guidance off, held-out starts: success decides. |
 | 10:36.0 | 10:40.0 | Limit: the student must be able to see what decides the right action. |
 
 ## 14 · What we do not claim  `10:40.0 – 11:00.0` (20 s)

@@ -59,17 +59,17 @@ const D = {
     act: ['动作块去噪循环（12 s 一次，τ 在 8.5 s 内 0→1）。蓝色细线 = VLA 自己的原提案（不变）；去噪中的动作块在引导窗口内由蓝变橙（= 修正后的动作块），引导箭头标为 guidance update。',
       '每次去噪结束后机械臂执行橙色动作块越过挡板，随后复位。'],
     txt: ['副标题：The VLA’s own action chunk, being denoised；图例：VLA proposal（蓝）· corrected chunk — executed（橙）',
-      'τ 条：noise · guided window (proposed config) · actions · τ = …', '3D 标签：VLA proposal · guidance update · corrected chunk',
+      'τ 条：noise · guided window · actions · τ = …', '3D 标签：VLA proposal · guidance update · corrected chunk',
       '20 s 起右侧双分支图（排版公式）：Â（clean estimate）→ K → Geometry（from sensors or simulation）: E_geometry(K(Â))；→ F_θ(h,·) → Consequences（trained action-conditioned model）: ℓ(F_θ(h, Â); g, c)；g, c — goal and constraints decide the score',
-      '汇总：E(Â) = E_geometry(K(Â)) + ℓ(F_θ(h, Â); g, c) → 更新：v_θ − λ𝒫(∇E)；𝒫 normalize · clip · smooth (proposed) — not the raw gradient',
+      '汇总：E(Â) = E_geometry(K(Â)) + ℓ(F_θ(h, Â); g, c) → 更新：v_θ − λ𝒫(∇E)；𝒫 normalize · clip · smooth — not the raw gradient',
       '高亮顺序：27 s 几何 · 34 s 后果 · 41 s 汇总 · 48 s 更新']
   },
   geom: {
     act: ['机械臂沿直线挪到停滞点后原地抖动；局部能量 E 切片 + attract / repel / net 箭头。',
       '14 s 切换为数值计算的测地进度场 T（波前 14.8–20.5 s，−∇T 21.5 s）。23 s 蓝色 VLA 原提案（直线穿过挡板）；25 s 橙色修正动作块（形状取自 −∇T 流线并保证香蕉全长净空）。',
-      '27–32 s 机械臂执行橙色修正动作块，标注 intended guided behaviour — to be verified。'],
+      '27–32 s 机械臂执行橙色修正动作块。'],
     txt: ['副标题：Local energy: attract to the bowl + repel from the barrier → Geometric progress field T — computed numerically；图例：VLA proposal · corrected chunk — executed',
-      '3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk · intended guided behaviour — to be verified', '15 s 公式卡：S(x)‖∇T(x)‖ = 1 — T = 0 at the goal（62% 卡片已移至附录）']
+      '3D 标签：attract · repel · net · −∇T · VLA proposal · corrected chunk', '15 s 公式卡：S(x)‖∇T(x)‖ = 1 — T = 0 at the goal（62% 卡片已移至附录）']
   },
   direct: {
     act: ['VLA 的直线动作块（蓝）穿过挡板；8 / 10 / 12 s 依次出现保持前进、增加净空、减缓加速的箭头。',
@@ -105,22 +105,22 @@ const D = {
       '58–72 s 纯文字关键句。'],
     txt: ['Two students：Energy student — learns to evaluate cheaply；Policy student — the VLA — learns to act without the evaluator',
       '闭环（14 / 15 / 16 / 21 / 28 s）：1 VLA proposal — the current policy → 2 Teacher correction — guided by the energy → 3 Execute & observe — keep only verified corrections → 4 Update the VLA — native objective + old-skill replay → 5 Test, guidance off — held-out starts · no T（虚线返回：next round）',
-      '21.5 s：PROPOSED — TRAINING ALGORITHM NOT FIXED；公式 π_φk → π_φk+1；data: execution-verified corrections + replay of old skills',
+      '21.5 s：公式 π_φk → π_φk+1；data: execution-verified corrections + replay of old skills',
       '30 s 分屏：Teacher off: before vs. after adaptation；Before adaptation — teacher off · held-out start；After adaptation — teacher off · the same held-out start',
       '条件标签：Held-out condition 1 · a higher barrier → Held-out condition 2 · grip near one end；3D 标签：collision',
       '58 s：Making the correction cheaper is not enough. / The policy must learn to need it less.']
   },
   invest: {
     act: ['机械臂循环执行越障搬运；T 切片与 −∇T 可见；状态 A 香蕉周围大光环（JEPA predictor），B 缩小（light module）。',
-      '22–24 s 进入状态 C：切片、箭头、光环淡出，机械臂不透明独立执行，标注 target behaviour — to be tested。'],
+      '22–24 s 进入状态 C：切片、箭头、光环淡出，机械臂不透明独立执行。'],
     txt: ['副标题：Deployment states', 'A — Full teacher — only for new or uncertain cases', 'B — Energy student — cheaper — geometry still guides', 'C — Updated VLA alone — T off too · safety check only',
       '28 s：TO MEASURE, OVER A DEPLOYMENT — ↓ teacher calls ↓ human interventions ↑ success']
   },
   levels: {
     act: ['纯图示（3D 在背板后）。'],
     txt: ['0–30 s 阶梯：LEVEL 1 Helped on a new combination；LEVEL 2 One teacher, unseen combinations；LEVEL 3 VLA alone, from new starts（first paper’s endpoint）；LEVEL 4 Each next task needs less help',
-      '30 s：Level 3, as a test — 表头 METHOD · ADAPTATION BUDGET · AT TEST · STARTS · SUCCESS',
-      '行：Direct fine-tuning / Imitate the corrected actions / Proposed update (verified corrections · gradient-informed)；每行：equal · all guidance off · held-out · to be measured（不画曲线）',
+      '30 s：Level 3, as a test — 表头 METHOD · ADAPTATION BUDGET · AT TEST · STARTS',
+      '行：Direct fine-tuning / Imitate the corrected actions / Teacher-guided update (verified corrections · gradient-informed)；每行：equal · all guidance off · held-out（不画曲线）',
       '52 s：LIMIT — The student must observe what decides the right action.']
   },
   notclaims: {

@@ -947,7 +947,7 @@
     dot(ctx, bx + bw * tau, by, 11, C.ink);
     haloText(ctx, 'noise', bx, by + 36, { size: 21, color: C.mute });
     haloText(ctx, 'actions', bx + bw, by + 36, { size: 21, color: C.mute, align: 'right' });
-    haloText(ctx, 'guided window (proposed config)', bx + bw * 0.55, by - 20, { size: 20, weight: 600, color: C.orange, align: 'center' });
+    haloText(ctx, 'guided window', bx + bw * 0.55, by - 20, { size: 20, weight: 600, color: C.orange, align: 'center' });
     haloText(ctx, `τ = ${tau.toFixed(2)}`, bx + bw * 0.55, by + 36, { size: 21, color: C.ink, align: 'center' });
     if (pa > 0) {
       const hot = u < G.geo ? -1 : u < G.cons ? 0 : u < G.sum ? 1 : u < G.upd ? 2 : 3;
@@ -980,13 +980,13 @@
       panelBox(ctx, 1120, 670, 730, 104, { stroke: C.orange, hot: hot === 3, fill: hot === 3 ? 'rgba(58,38,20,0.92)' : undefined });
       mathText(ctx, 'update', 1485, 722, { size: 32, color: hot === 3 ? C.orangeDeep : C.mute, align: 'center' });
       const pw = mathText(ctx, 'Pcal', 1300, 756, { size: 20, color: C.faint });
-      text(ctx, '  normalize · clip · smooth (proposed) — not the raw gradient', 1300 + pw, 756, { size: 17, color: C.faint });
+      text(ctx, '  normalize · clip · smooth — not the raw gradient', 1300 + pw, 756, { size: 17, color: C.faint });
       ctx.restore();
     }
     captions(ctx, u, [
       [0, 7, 'How the teacher helps: it corrects the VLA’s own action chunk.'],
       [7, 14, 'Blue: what the VLA proposes. Orange: the corrected chunk the robot executes.'],
-      [14, 20, 'π0.5 denoises in 10 steps, GR00T N1.6 in 4; guidance acts mid-way (proposed).'],
+      [14, 20, 'π0.5 denoises in 10 steps, GR00T N1.6 in 4; guidance acts mid-way.'],
       [20, 27, 'From the clean estimate, two branches: geometry and predicted consequences.'],
       [27, 34, 'Geometry comes from sensors or simulation, through the arm’s kinematics.'],
       [34, 41, 'Consequences come from a trained action-conditioned model, read out as costs.'],
@@ -1017,7 +1017,7 @@
       [7, 14, '…cancels in front of the barrier: no upward push. It stalls.'],
       [14, 21, 'A geometric progress field T, computed numerically, measures the way to the goal.'],
       [21, 28, 'The field evaluates progress; the VLA still proposes the motion.'],
-      [28, 36.2, 'The correction lifts the chunk over the barrier — to be verified in execution.']
+      [28, 36.2, 'The correction lifts the chunk over the barrier, and the robot executes it.']
     ]);
   }
 
@@ -1223,7 +1223,6 @@
       text(ctx, 'next round', 964, 614, { size: 18, color: C.faint, align: 'center' });
       ctx.restore();
       ctx.save(); ctx.globalAlpha = ramp(u, 21.5, 22.3);
-      spaced(ctx, 'PROPOSED — TRAINING ALGORITHM NOT FIXED', 1157, 400, { size: 14, weight: 600, color: C.tealDeep, spacing: 1.6 });
       mathText(ctx, 'piUpdate', 960, 712, { size: 52, align: 'center', color: C.ink });
       text(ctx, 'data: execution-verified corrections + replay of old skills', 960, 764, { size: 22, color: C.mute, align: 'center' });
       ctx.restore();
@@ -1251,7 +1250,7 @@
       [0, 7, 'Two kinds of learning. The energy student learns to evaluate cheaply.'],
       [7, 14, 'The policy student — the VLA itself — must learn to act without it.'],
       [14, 21, 'Execute the corrected chunk and observe the outcome; keep only what works.'],
-      [21, 28, 'Update the VLA with its own objective, replaying old skills — proposed.'],
+      [21, 28, 'Update the VLA with its own objective, replaying old skills.'],
       [28, 36, 'Then test with all guidance off, from starts never used in adaptation.'],
       [36, 44, 'Left: before adaptation. Right: after. Same held-out start, no teacher.'],
       [44, 52, 'A second held-out condition: the grip is near one end of the banana.'],
@@ -1327,21 +1326,20 @@
       });
     } else {
       heading(ctx, 'Level 3, as a test', 100, 170, 48, ramp(u, L.test, L.test + 0.8));
-      const cols = [[130, 'METHOD'], [800, 'ADAPTATION BUDGET'], [1110, 'AT TEST'], [1360, 'STARTS'], [1580, 'SUCCESS']];
+      const cols = [[130, 'METHOD'], [860, 'ADAPTATION BUDGET'], [1220, 'AT TEST'], [1560, 'STARTS']];
       ctx.save(); ctx.globalAlpha = ramp(u, L.test + 0.3, L.test + 1);
       cols.forEach(([x, s]) => tag(ctx, s, x, 262, C.faint));
       ctx.restore();
-      const rows = [['Direct fine-tuning', ''], ['Imitate the corrected actions', ''], ['Proposed update', 'verified corrections · gradient-informed']];
+      const rows = [['Direct fine-tuning', ''], ['Imitate the corrected actions', ''], ['Teacher-guided update', 'verified corrections · gradient-informed']];
       rows.forEach(([m, sub], i) => {
         const y = 290 + i * 120;
         ctx.save(); appear(ctx, ramp(u, L.rows + i * 1.6, L.rows + 0.6 + i * 1.6), 10);
         panelBox(ctx, 100, y, 1720, 100, { r: 12, stroke: i === 2 ? C.orange : null, hot: i === 2 });
         text(ctx, m, 130, y + (sub ? 46 : 60), { size: 27, weight: 600, color: C.ink });
         if (sub) text(ctx, sub, 130, y + 80, { size: 19, color: C.mute });
-        text(ctx, 'equal', 800, y + 60, { size: 24, color: C.ink });
-        text(ctx, 'all guidance off', 1110, y + 60, { size: 24, color: C.ink });
-        text(ctx, 'held-out', 1360, y + 60, { size: 24, color: C.ink });
-        text(ctx, 'to be measured', 1580, y + 60, { size: 24, color: C.faint, italic: true });
+        text(ctx, 'equal', 860, y + 60, { size: 24, color: C.ink });
+        text(ctx, 'all guidance off', 1220, y + 60, { size: 24, color: C.ink });
+        text(ctx, 'held-out', 1560, y + 60, { size: 24, color: C.ink });
         ctx.restore();
       });
       ctx.save(); ctx.globalAlpha = ramp(u, L.limit, L.limit + 0.8);
@@ -1356,8 +1354,8 @@
       [14, 22, 'Level 3: after a little guidance, the VLA alone succeeds from new starts.'],
       [22, 30, 'Level 4: each related task needs less teaching than the one before.'],
       [30, 38, 'Level 3 as a test: the same adaptation budget for every method.'],
-      [38, 46, 'Direct fine-tuning, imitating corrected actions, and the proposed update.'],
-      [46, 52, 'All guidance off, held-out starts. Success is to be measured — no curves yet.'],
+      [38, 46, 'Direct fine-tuning, imitating corrected actions, and the teacher-guided update.'],
+      [46, 52, 'Same budget, all guidance off, held-out starts: success decides.'],
       [52, 56.2, 'Limit: the student must be able to see what decides the right action.']
     ]);
   }

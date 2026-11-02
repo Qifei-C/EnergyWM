@@ -746,7 +746,6 @@
             // the arm executes the corrected chunk (its shape comes from −∇T): up and over into the bowl
             const a = this.streamAt(this.streams.L0, sramp(u, G.exec[0], G.exec[1]));
             this.setRobot(a.q, 0.018, a.p); this.setOpacity(lerp(GHOST, 0.9, sramp(u, G.exec[0], G.exec[0] + 1)));
-            this.label(fieldToWorld(0.96, 0.56), 'intended guided behaviour — to be verified', LC.mute, { size: 22, align: 'center', alpha: ramp(u, G.exec[0], G.exec[0] + 0.8) });
           }
           const base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01;
           if (u < G.T) {
@@ -862,7 +861,6 @@
           this.lookFrom(...CAM_SIDE);
           const solo = sramp(u, V.C, V.C + 2);
           const ex = this.arcLoop(u, 6.5, 1.0); this.setRobot(ex.q, 0.018, ex.p); this.setOpacity(lerp(0.35, 1, solo));
-          if (u > V.C) this.label(fieldToWorld(0.62, 0.47), 'target behaviour — to be tested', LC.green, { size: 24, align: 'center', alpha: ramp(u, V.C + 0.5, V.C + 1.5) });
           this.paintPlane('T', null, { quiver: 1 }); this.plane.material.opacity = 0.92 * ramp(u, 0, 1.5) * (1 - solo);
           if (solo < 1) { const base = fieldToWorld(start[0], start[1]); base.y = Y_FIELD_PLANE - 0.01; const g = core.F.L0.gradAt(start[0], start[1]), L = Math.hypot(g[0], g[1]) || 1; setArrow(this.arrows.grad, base, new THREE.Vector3(-g[0] / L, 0, -g[1] / L), 0.2, 1 - solo); }
           // consequence-teacher halo: large in A (full JEPA), small in B (light module), gone in C
