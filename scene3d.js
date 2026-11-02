@@ -424,6 +424,8 @@
       const pick = [S.x, BANANA_HALF_H + 0.002], lift = [S.x, S.z], place = [WORLD.bowlX, 0.15], down = [WORLD.bowlX, 0.08];
       this.trajOpen = [[S.x, 0.13]].concat(seg([S.x, 0.13], pick, 10), seg(pick, lift, 10), core.util.arcPath(lift[0], lift[1], place[0], place[1], 0.24, 30).slice(1), seg(place, down, 10));
       this.qOpen = this.solvePath(this.trajOpen, this.qStraight[0]);
+      this.trajArcHi = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.48, 60); // held-out higher barrier
+      this.qArcHi = this.solvePath(this.trajArcHi, this.qStraight[0]);
       const res = (traj, qs) => Math.max(...qs.map((q, k) => { const M = P.fk(q), p = new THREE.Vector3().setFromMatrixPosition(M).applyMatrix4(P.root.matrixWorld); const w = fieldToWorld(traj[k][0], traj[k][1]); w.z -= 0.004; return p.distanceTo(w); }));
       this.ikResidual = Object.assign(this.ikResidual || {}, { straight: res(this.trajStraight, this.qStraight), arc: res(this.trajArc, this.qArc), open: res(this.trajOpen, this.qOpen) });
     }
@@ -495,8 +497,20 @@
     // follow a precomputed stream: 0..1 progress, returns {q, p, world?}
     streamAt(st, k) { const q = this.sampleQ(st.q, k), p = this.sampleP(st.pts, k); return { q, p, world: st.ws ? (() => { const n = st.ws.length - 1, f = clamp(k, 0, 1) * n, i = Math.min(Math.floor(f), n - 1); return st.ws[i].clone().lerp(st.ws[i + 1], f - i); })() : null }; }
     qMix(a, b, k) { return a.map((v, i) => lerp(v, b[i], k)); }
-    arcAt(k) { // transport along the guided arc, starting from the start pose
-      const q = this.sampleQ(this.qArc, k), p = this.sampleP(this.trajArc, k), b = clamp(k / 0.08, 0, 1);
+    proposalAndCorrection(p, goal, st, u, tProp, tCorr, top) {
+      if (u < tProp) return;
+      const prop = []; for (let k = 0; k < 10; k++) { const x = lerp(p[0], goal[0], k / 9), y = lerp(p[1], goal[1], k / 9); prop.push(top ? topFieldToWorld(x, y).setZ(COUNTER_Z + 0.175) : fieldToWorld(x, y)); }
+      const ap = ramp(u, tProp, tProp + 0.6); this.showProp(prop, 0.85 * ap);
+      this.label(prop[6].clone().add(new THREE.Vector3(0, 0, top ? 0.02 : -0.05)), 'VLA proposal', LC.blueDeep, { size: 22, align: 'center', alpha: ap });
+      if (u < tCorr) return;
+      const P3 = st.ws ? st.ws.map(w => w.clone().setZ(w.z + 0.006)) : st.pts.map(q => fieldToWorld(q[0], q[1])), ac = ramp(u, tCorr, tCorr + 0.6);
+      this.showChunkW(P3, ac, 1);
+      const apex = P3.reduce((a, b) => (top ? b.y > a.y : b.z > a.z) ? b : a, P3[0]);
+      this.label(apex.clone().add(new THREE.Vector3(top ? 0.10 : 0.09, 0, 0.04)), 'corrected chunk', LC.orangeDeep, { size: 22, alpha: ac });
+    }
+    arcAt(k, qs, traj) { // transport along a guided arc, starting from the start pose
+      qs = qs || this.qArc; traj = traj || this.trajArc;
+      const q = this.sampleQ(qs, k), p = this.sampleP(traj, k), b = clamp(k / 0.08, 0, 1);
       if (b >= 1) return { q, p };
       return { q: this.qMix(this.qStraight[0], q, b), p: [lerp(WORLD.start.x, p[0], b), lerp(WORLD.start.z, p[1], b)] };
     }
@@ -557,7 +571,7 @@
     hideAll() {
       const A = this.arrows; for (const k of ['attract', 'repel', 'net', 'grad', 'keep']) A[k].visible = false; A.guide.forEach(a => a.visible = false);
       this.probeMarker.visible = false; this.straightTube.visible = false; this.arcTube.visible = false;
-      this.chunkDots.forEach(d => d.visible = false); if (this.chunkTube) this.chunkTube.visible = false; if (this.cleanTube) this.cleanTube.visible = false;
+      this.chunkDots.forEach(d => d.visible = false); if (this.chunkTube) this.chunkTube.visible = false; if (this.cleanTube) this.cleanTube.visible = false; if (this.propTube) this.propTube.visible = false;
       this.hideCem();
       this.ring.visible = false; this.halo.visible = false; this.plane.material.opacity = 0; this.topPlane.material.opacity = 0;
       this.roof.visible = false; this.ceiling.visible = false; this.bananaB.visible = false; this.bowl2.visible = false; this.cup.visible = false;
@@ -574,12 +588,20 @@
       return f;
     }
     // chunk dots + tube through field points
-    showChunk(pts, opacity) {
-      const P3 = pts.map(p => fieldToWorld(p[0], p[1]));
-      P3.forEach((p, k) => { const d = this.chunkDots[k]; d.visible = true; d.position.copy(p); });
+    // action chunk: mix 0 = blue (VLA proposal) … 1 = orange (corrected chunk)
+    showChunk(pts, opacity, mix) { return this.showChunkW(pts.map(p => fieldToWorld(p[0], p[1])), opacity, mix); }
+    showChunkW(P3, opacity, mix) {
+      const col = new THREE.Color(COL.blue).lerp(new THREE.Color(COL.orange), clamp(mix || 0, 0, 1)), lin = col.clone().convertSRGBToLinear();
+      const n = this.chunkDots.length;
+      for (let k = 0; k < n; k++) { const d = this.chunkDots[k], p = P3[Math.round(k * (P3.length - 1) / (n - 1))]; d.visible = true; d.position.copy(p); d.material.color.copy(lin); d.material.emissive.copy(lin); d.material.opacity = opacity == null ? 1 : opacity; d.material.transparent = true; }
       if (this.chunkTube) { this.ov.remove(this.chunkTube); this.chunkTube.geometry.dispose(); }
-      this.chunkTube = tubeFromPoints(P3, 0.005, COL.blue, 60); this.chunkTube.material.opacity = opacity == null ? 1 : opacity; this.ov.add(this.chunkTube);
+      this.chunkTube = tubeFromPoints(P3, 0.005, col.getHex(), 60); this.chunkTube.material.opacity = opacity == null ? 1 : opacity; this.ov.add(this.chunkTube);
       return P3;
+    }
+    // the VLA's original proposal, as a thin blue line
+    showProp(P3, opacity) {
+      if (this.propTube) { this.ov.remove(this.propTube); this.propTube.geometry.dispose(); }
+      this.propTube = tubeFromPoints(P3, 0.003, COL.blue, 40, { ei: 0.9 }); this.propTube.material.opacity = opacity; this.ov.add(this.propTube);
     }
     orbit(u, dur) {
       const k = u / dur, ang = -1.2 + k * 0.5;
@@ -641,7 +663,10 @@
             this.setRobot(q, 0.018, p, { dx: off });
             for (const mm of this.banana.userData.mats) mm.opacity = ramp(u, G.combo, G.combo + 0.6);
             const rise = sramp(u, G.combo + 0.3, G.combo + 1.8); this.barrier.scale.set(1, 1, Math.max(rise, 0.01)); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * rise / 2;
-            this.ceiling.visible = u > G.comboChips[1]; this.ceiling.material.opacity = 0.32 * ramp(u, G.comboChips[1], G.comboChips[1] + 0.8);
+            const lift = sramp(u, G.lift, G.lift + 2.5);
+            this.ceiling.visible = u > G.comboChips[1] && lift < 0.999; this.ceiling.material.opacity = 0.32 * ramp(u, G.comboChips[1], G.comboChips[1] + 0.8) * (1 - lift);
+            this.ceiling.position.z = COUNTER_Z + 0.47 + 0.35 * lift;
+            if (u > G.lift) this.label(fieldToWorld(0.62, 0.40 + 0.06 * lift), 'ceiling removed from here on', LC.mute, { size: 22, align: 'center', alpha: fade(u, G.lift, G.lift + 0.6, G.lift + 4.5, G.lift + 5.5) });
             const f = this.flash([p[0] + off, p[1]], G.fail[1], u);
             if (f > 0) this.label(this.ringLabelPos, 'collision', LC.red, { size: 28, weight: 700, align: 'right', alpha: f });
           }
@@ -691,13 +716,16 @@
             const cx = lerp(sx, arc[k][0], g), cz = lerp(sz, arc[k][1], g); clean.push([cx, cz]);
             pts.push([lerp(noise[k][0] + 0.6, cx, tau), lerp(noise[k][1] + 0.28, cz, tau)]);
           }
-          const P3 = this.showChunk(pts, 0.35 + 0.65 * tau), C3 = clean.map(p => fieldToWorld(p[0], p[1]));
-          if (this.cleanTube) { this.ov.remove(this.cleanTube); this.cleanTube.geometry.dispose(); this.cleanTube = null; }
-          if (tau > 0.05 && tau < 0.98) { this.cleanTube = tubeFromPoints(C3, 0.0025, COL.blue, 60, { ei: 0.4 }); this.cleanTube.material.opacity = 0.45; this.ov.add(this.cleanTube); this.label(C3[6].clone().add(new THREE.Vector3(0, 0, 0.05)), 'clean estimate', LC.blueDeep, { size: 24, weight: 600 }); }
+          const P3 = this.showChunk(pts, 0.35 + 0.65 * tau, g);
+          // the VLA's own (unguided) proposal stays visible as a thin blue line
+          const prop = []; for (let k = 0; k < Hn; k++) prop.push(fieldToWorld(lerp(WORLD.start.x + 0.03, WORLD.bowlX, k / (Hn - 1)), lerp(WORLD.start.z, 0.13, k / (Hn - 1))));
+          this.showProp(prop, 0.7 * ramp(u, 1, 2));
+          this.label(prop[7].clone().add(new THREE.Vector3(0, 0, -0.05)), 'VLA proposal', LC.blueDeep, { size: 22, align: 'center', alpha: ramp(u, 1, 2) });
+          if (tau > 0.8) this.label(P3[5].clone().add(new THREE.Vector3(0, 0, 0.07)), 'corrected chunk', LC.orangeDeep, { size: 24, align: 'center', alpha: ramp(tau, 0.8, 0.9) });
           if (inWin) {
             const strength = Math.sin((tau - 0.3) / 0.5 * Math.PI);
             for (let k = 2; k <= 7; k++) setArrow(this.arrows.guide[k], P3[k], new THREE.Vector3(0.25, 0, 1), 0.14 * strength * (1 - Math.abs(k - 4.5) / 4));
-            this.label(P3[4].clone().add(new THREE.Vector3(0, 0, 0.2)), '−λ∇E', LC.orangeDeep, { size: 34, math: true });
+            this.label(P3[4].clone().add(new THREE.Vector3(0, 0, 0.2)), 'guidance update', LC.orangeDeep, { size: 24, weight: 700, align: 'center' });
           }
           // after each denoising pass the arm executes the finished chunk, then resets for the next pass
           const uu = u % 12; let ex = { q: this.qStraight[0], p: start };
@@ -709,15 +737,16 @@
         case 'geom': {
           const G = TL.geom;
           this.blendCam(CAM_MAIN, CAM_SIDE, u / 2.5);
-          if (u < G.T + 9) {
+          if (u < G.exec[0]) {
             // creep along the straight approach to the stall point, then stay pinned there (small jitter, no escape)
             const k = sramp(u, 0.3, 3.0) * this.probeProg + (u > 3 && u < G.T ? 0.06 * Math.sin((u - 3) * 4.2) * (1 - ramp(u, G.T - 1.5, G.T - 0.5)) : 0);
             this.setRobot(this.sampleQ(this.qStraight, k), 0.018, this.sampleP(this.trajStraight, k));
             this.setOpacity(lerp(1, GHOST, sramp(u, G.ghost[0], G.ghost[1])));
           } else {
-            // the arm follows −∇T: up and over the barrier into the bowl
-            const a = this.streamAt(this.streams.L0, sramp(u, G.T + 9, G.T + 14.5));
-            this.setRobot(a.q, 0.018, a.p); this.setOpacity(lerp(GHOST, 0.9, sramp(u, G.T + 9, G.T + 10)));
+            // the arm executes the corrected chunk (its shape comes from −∇T): up and over into the bowl
+            const a = this.streamAt(this.streams.L0, sramp(u, G.exec[0], G.exec[1]));
+            this.setRobot(a.q, 0.018, a.p); this.setOpacity(lerp(GHOST, 0.9, sramp(u, G.exec[0], G.exec[0] + 1)));
+            this.label(fieldToWorld(0.96, 0.56), 'intended guided behaviour — to be verified', LC.mute, { size: 22, align: 'center', alpha: ramp(u, G.exec[0], G.exec[0] + 0.8) });
           }
           const base = fieldToWorld(pr.x, pr.z); base.y = Y_FIELD_PLANE - 0.01;
           if (u < G.T) {
@@ -734,6 +763,7 @@
           } else {
             this.paintPlane('T', core.F.L0.tmax * sramp(u, G.cut[0], G.cut[1]), { quiver: ramp(u, G.quiver[0], G.quiver[1]) }); this.plane.material.opacity = 0.92;
             this.gradAt(core.F.L0, probe, u, G.grad[0]);
+            this.proposalAndCorrection(probe, [WORLD.bowlX - 0.04, 0.13], this.streams.L0, u, G.prop, G.corr);
           }
           break;
         }
@@ -743,13 +773,14 @@
           { const ex = this.arcAt(sramp(u, D.bend[1] + 1, D.bend[1] + 6.5)); this.setRobot(ex.q, 0.018, ex.p); } // the corrected chunk is executed
           const Hn = 10, arc = core.util.arcPath(WORLD.start.x + 0.03, WORLD.start.z, WORLD.bowlX, 0.13, 0.40, Hn - 1), bend = sramp(u, D.bend[0], D.bend[1]);
           const pts = []; for (let k = 0; k < Hn; k++) { const sx = lerp(WORLD.start.x + 0.03, WORLD.bowlX, k / (Hn - 1)), sz = lerp(WORLD.start.z, 0.13, k / (Hn - 1)); pts.push([lerp(sx, arc[k][0], bend), lerp(sz, arc[k][1], bend)]); }
-          const P3 = this.showChunk(pts, ramp(u, 0.5, 1.2));
+          const P3 = this.showChunk(pts, ramp(u, 0.5, 1.2), bend);
+          if (bend > 0) { const prop = []; for (let k = 0; k < Hn; k++) prop.push(fieldToWorld(lerp(WORLD.start.x + 0.03, WORLD.bowlX, k / (Hn - 1)), lerp(WORLD.start.z, 0.13, k / (Hn - 1)))); this.showProp(prop, 0.7 * bend); }
           const fo = 1 - ramp(u, D.bend[0], D.bend[0] + 1);
           const kA = sramp(u, D.keep, D.keep + 0.8), lA = sramp(u, D.lift, D.lift + 0.8), eA = sramp(u, D.ease, D.ease + 0.8);
           if (kA > 0 && fo > 0) { setArrow(this.arrows.keep, P3[1].clone().add(new THREE.Vector3(0, 0, 0.05)), new THREE.Vector3(1, 0, 0), 0.12 * kA, fo); this.label(P3[1].clone().add(new THREE.Vector3(0.02, 0, -0.07)), 'keep progress', LC.blueDeep, { size: 24, alpha: kA * fo }); }
           if (lA > 0 && fo > 0) { for (let k = 3; k <= 6; k++) setArrow(this.arrows.guide[k], P3[k], new THREE.Vector3(0, 0, 1), 0.15 * lA * (1 - Math.abs(k - 4.5) / 4), fo); this.label(P3[4].clone().add(new THREE.Vector3(0, 0, 0.19)), 'more clearance', LC.orangeDeep, { size: 24, align: 'center', alpha: lA * fo }); }
           if (eA > 0 && fo > 0) { for (let k = 7; k <= 9; k++) setArrow(this.arrows.guide[k], P3[k], new THREE.Vector3(-1, 0, 0.15), 0.06 * eA, fo); this.label(P3[8].clone().add(new THREE.Vector3(0, 0, -0.07)), 'ease the acceleration', LC.orangeDeep, { size: 24, align: 'center', alpha: eA * fo }); }
-          if (u > D.bend[1]) this.label(P3[5].clone().add(new THREE.Vector3(0, 0, 0.07)), 'corrected chunk', LC.blueDeep, { size: 24, align: 'center', alpha: ramp(u, D.bend[1], D.bend[1] + 0.8) });
+          if (u > D.bend[1]) this.label(P3[5].clone().add(new THREE.Vector3(0, 0, 0.07)), 'corrected chunk', LC.orangeDeep, { size: 24, align: 'center', alpha: ramp(u, D.bend[1], D.bend[1] + 0.8) });
           break;
         }
         case 'slip': {
@@ -781,10 +812,12 @@
             this.gradAt(core.F.L0, probe, u, 2.5);
           } else if (u < I.goal) {
             const phase = u < PH[1] ? 0 : u < PH[2] ? 1 : 2, u0 = PH[phase], k = sramp(u, u0, u0 + 1.2);
-            const fb = (st, qB, pB) => this.followAndBack(st, u, u0 + 4.6, u0 + 7.0, u0 + 7.9, qB, pB);
+            const fb = (st, qB, pB) => this.followAndBack(st, u, u0 + 4.9, u0 + 7.1, u0 + 7.9, qB, pB);
+            const pc = (st, goal, from, top) => this.proposalAndCorrection(from || probe, goal, st, u, u0 + 3.9, u0 + 4.4, top);
             let mvI = 0;
             if (phase === 0) {
               this.lookFrom(...CAM_SIDE); { const a = fb(this.streams.L1, this.qProbe, probe); this.setRobot(a.q, 0.018, a.p); mvI = a.mv; }
+              pc(this.streams.L1, [WORLD.bowlX - 0.04, 0.10]);
               this.barrier.scale.set(1, 1, Math.max(1 - k, 0.01)); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * (1 - k) / 2; this.barrier.visible = k < 0.99;
               this.paintPlane('T', core.F.L1.tmax * sramp(u, u0 + 0.8, u0 + 3.5), { field: 'L1', quiver: ramp(u, u0 + 3.2, u0 + 4) }); this.plane.material.opacity = 0.92;
               this.gradAt(core.F.L1, probe, u, u0 + 3.6);
@@ -792,6 +825,8 @@
               this.blendCam(CAM_SIDE, CAM_TOP, k);
               if (this.streams.L2.ok) { const pB = start.slice(); pB.world = fieldToWorld(start[0], start[1]); const a = fb(this.streams.L2, this.qStraight[0], pB); this.setRobot(a.q, 0.018, start, { world: a.world || pB.world }); mvI = a.mv; }
               else this.setRobot(this.qStraight[0], 0.018, start);
+              pc(this.streams.L2, [0.80, 0.32], [0.30, 0.32], true);
+              this.label(topFieldToWorld(0.40, 0.60), 'side opening', LC.tealDeep, { size: 24, weight: 700, align: 'right', alpha: ramp(u, u0 + 1.2, u0 + 2) });
               const wy1 = WORLD.top.wallY1 - 0.10; this.barrier.scale.set(1, wy1 / 0.45, 1); this.barrier.position.y = wy1 / 2;
               this.roof.visible = true; this.roof.scale.set(1, wy1 / 0.50, 1); this.roof.position.y = wy1 / 2;
               this.paintTop('L2', core.F.L2.tmax * sramp(u, u0 + 0.8, u0 + 3.5)); this.topPlane.material.opacity = 0.9 * ramp(u, u0 + 0.5, u0 + 1.2);
@@ -800,6 +835,7 @@
               if (gq > 0) { const dir = new THREE.Vector3(-g[0] / L, -g[1] / L, 0); this.probeMarker.visible = true; this.probeMarker.position.copy(base); setArrow(this.arrows.grad, base, dir, 0.22 * gq); this.label(base.clone().add(dir.multiplyScalar(0.22 * gq)), '−∇T', LC.orangeDeep, { size: 36, weight: 700, dx: 18, dy: -6, alpha: gq }); }
             } else {
               this.lookFrom(...CAM_SIDE); { const a = fb(this.streams.L3, this.qProbe, probe); this.setRobot(a.q, 0.018, a.p); mvI = a.mv; }
+              pc(this.streams.L3, [WORLD.bowlX - 0.04, 0.13]);
               const hs = lerp(1, WORLD.tallH / WORLD.barrierH, k); this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + WORLD.barrierH * hs / 2;
               this.paintPlane('T', core.F.L3.tmax * sramp(u, u0 + 0.8, u0 + 3.5), { field: 'L3', quiver: ramp(u, u0 + 3.2, u0 + 4) }); this.plane.material.opacity = 0.92;
               this.gradAt(core.F.L3, probe, u, u0 + 3.6);
@@ -815,6 +851,7 @@
             this.bowl.material.opacity = lerp(1, 0.55, pop);
             this.paintPlane('T', core.F.L4.tmax * sramp(u, I.goalCut[0], I.goalCut[1]), { field: 'L4', quiver: ramp(u, I.goalCut[1], I.goalCut[1] + 1) }); this.plane.material.opacity = 0.92;
             this.gradAt(core.F.L4, probe, u, I.goalCut[1] + 0.5);
+            this.proposalAndCorrection(probe, [WORLD.bowl2X - 0.04, 0.12], this.streams.L4, u, I.goalCut[1] + 0.7, I.goalCut[1] + 1.2);
             this.label(fieldToWorld(WORLD.bowl2X + WORLD.bowlR + 0.01, 0.05), 'new goal', LC.blueDeep, { size: 24, dx: 8, alpha: ramp(u, I.goal + 0.5, I.goal + 1.2) });
             this.label(fieldToWorld((WORLD.cup.x0 + WORLD.cup.x1) / 2, WORLD.cup.h + 0.06), 'do not touch', LC.red, { size: 24, align: 'center', alpha: ramp(u, I.goal + 1, I.goal + 1.7) });
           }
@@ -838,7 +875,28 @@
           }
           break;
         }
-        default: this.orbit(u, s.dur); // thesis, teach, levels, notclaims, end: diagrams over a slow orbit
+        case 'policy': {
+          const P = TL.policy;
+          if (u >= P.split - 0.5 && u < P.line + 0.5) {
+            splitCam(); this.split = true;
+            const c2 = u >= P.c2, t0 = c2 ? P.c2m : P.c1, hb = c2 ? WORLD.barrierH : 0.30, off = c2 ? 0.05 : 0;
+            const hs = hb / WORLD.barrierH; this.barrier.scale.set(1, 1, hs); this.barrier.position.z = COUNTER_Z + hb / 2;
+            // left: before adaptation, teacher off — the familiar straight move (illustrative failure)
+            const contact = core.util.contactPoint(), pEnd = (contact.x - off - WORLD.start.x) / (contact.x - WORLD.start.x);
+            const mL = sramp(u, t0[0], t0[1]) * pEnd, qL = this.sampleQ(this.qStraight, mL), pL = this.sampleP(this.trajStraight, mL);
+            const fL = u > t0[1] ? fade(u, t0[1], t0[1] + 0.15, t0[1] + 1.6, t0[1] + 3) : 0;
+            const ringPos = fieldToWorld(WORLD.barrierX0, pL[1] - 0.01); ringPos.y = Y_TASK - 0.09;
+            if (fL > 0) { const px = proj2(ringPos.clone().add(new THREE.Vector3(-0.07, 0, 0.09)), 0); if (px) this.label(null, 'collision', LC.red, { px, size: 28, weight: 700, align: 'right', alpha: fL }); }
+            // right: after adaptation, teacher off — the target behaviour (hypothesis)
+            const ex = c2 ? this.arcAt(sramp(u, t0[0], t0[2])) : this.arcAt(sramp(u, t0[0], t0[2]), this.qArcHi, this.trajArcHi);
+            this.halves = [
+              { apply: () => { this.setRobot(qL, 0.018, pL, { dx: off }); this.ring.visible = fL > 0; if (fL > 0) { this.ring.position.copy(ringPos); this.ring.rotation.set(Math.PI / 2, 0, 0); const sc = 1 + (u - t0[1]) * 0.7; this.ring.scale.set(sc, sc, sc); this.ring.material.opacity = fL; } } },
+              { apply: () => { this.setRobot(ex.q, 0.018, ex.p, { dx: off }); this.ring.visible = false; } }
+            ];
+          } else this.orbit(u, s.dur);
+          break;
+        }
+        default: this.orbit(u, s.dur); // thesis, teach, levels, notclaims, end, appendix: diagrams over a slow orbit
       }
       this.labelsOut = this.labels.map(l => Object.assign({}, l, { px: l.px || (l.pos ? this.project(l.pos) : null) }));
       this.anchorsOut = {};
