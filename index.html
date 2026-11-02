@@ -796,6 +796,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
     ctx.save(); ctx.globalAlpha = ramp(u, 3.2, 4.2);
     ctx.fillStyle = C.orange; ctx.fillRect(150, 730, 120, 4);
     text(ctx, 'Qifei C.', 150, 792, { size: 30, weight: 600, color: C.ink });
+    text(ctx, 'CocoMatrix', 150, 832, { size: 24, color: C.mute });
     ctx.restore();
   }
 
@@ -1522,6 +1523,7 @@ html.headless .stage { width: 1920px; height: 1080px; border: 0; border-radius: 
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 25, 26);
     text(ctx, 'Qifei C.', 160, 826, { size: 24, weight: 600, color: C.ink });
+    text(ctx, '· CocoMatrix', 160 + (font(ctx, 600, 24, SANS), ctx.measureText('Qifei C.').width) + 10, 826, { size: 24, color: C.mute });
     text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2601.16163 · 2603.16666 · 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011', 160, 866, { size: 16, color: C.faint });
     text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 894, { size: 16, color: C.faint });
     ctx.restore();
