@@ -116,11 +116,11 @@ const D = {
   },
   sim2real: {
     act: ['0–34 s 左右分屏。左：仿真厨房（原样），VLA 抓起香蕉放进碗。右：新厨房（暖光、木色台面与柜子、浅色墙、台面后方杂物、相机位置不同），同一个 VLA 在香蕉旁 6 cm 处合爪、空手抬起，标注 misses the grasp（示意失败）。',
-      '20–22 s 两半同时叠上“几何层”：按世界坐标着色的高度色 + 公制网格（与纹理、光照、相机无关），两边看起来一致。',
-      '34–50 s 全屏新厨房，几何层半透明：蓝色 VLA 原提案（抓偏处）→ 橙色修正动作块移到香蕉上 → 机械臂执行，抓起香蕉放进碗。',
+      '20–22 s 两半同时切换为几何视图：所有模型（厨房、物体、机械臂）去掉纹理，按机器人坐标系下的表面法线着色（正面蓝紫、顶面绿、侧面粉/青），铺 5 cm 公制网格；两边看起来一致——表示不再关注纹理。',
+      '34–50 s 全屏，新厨房的几何视图（教师视角）：蓝色 VLA 原提案（抓偏处）→ 橙色修正动作块移到香蕉上 → 机械臂执行，抓起香蕉放进碗；46–48.5 s 淡回真实厨房。',
       '50–62 s 深色背板，三张文献卡；62–72 s 问题卡。'],
     txt: ['标题：From simulation to a real kitchen；右上：ILLUSTRATIVE FAILURE；左右栏：Simulation — where the VLA was trained / A new kitchen — new texture, light, background — and camera pose',
-      '20 s 起：geometry layer: depth in the robot’s frame（两栏）；Same geometry, same frame — in both kitchens',
+      '20 s 起：geometry only: surface normals on a metric grid（两栏）；Same geometry, same frame — in both kitchens',
       '34 s：The teacher works on the geometry layer — in the new kitchen；图例 VLA proposal · corrected chunk — executed；3D 标签：VLA proposal · corrected chunk · geometry layer on — the teacher’s view',
       '50 s：What prior work shows — 95% → <30%（VLA success under modest camera-viewpoint and robot-state perturbations — LIBERO-Plus, arXiv 2510.13626）· 2.7% → 36.9%（real-world success of a sim-trained policy (Click Bell): no randomization vs. table-height randomization; background alone: 11.5% — arXiv 2603.22876, Tab. 1）· 72.5% → 84.7%（π0.5 real-robot OOD completion with a JEPA world-model loss added in training only (5 tasks × 10 rollouts); median latency 54.05 → 55.12 ms — JEPA-WAM, arXiv 2608.09381, §4.4, Tab. 12）',
       '62 s：WHAT WE TEST — Does a teacher that works on geometry make a small VLA adapt to a new kitchen faster — fewer demonstrations to the same success — and keep it once the teacher is off?；Prior work shows robustness gains from world-model losses in training — not adaptation speed. That is the Level 3 test, run in a new environment.']

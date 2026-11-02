@@ -1317,7 +1317,7 @@
         ctx.fillStyle = col; rrect(ctx, x + 60, 206, 4, 54, 2); ctx.fill();
         haloText(ctx, title, x + 80, 232, { size: 30, weight: 600, color: col });
         haloText(ctx, sub, x + 80, 262, { size: 18, color: C.mute, alpha: 1 - g });
-        haloText(ctx, 'geometry layer: depth in the robot’s frame', x + 80, 262, { size: 18, color: C.tealDeep, alpha: g });
+        haloText(ctx, 'geometry only: surface normals on a metric grid', x + 80, 262, { size: 18, color: C.tealDeep, alpha: g });
         ctx.restore();
       });
       haloText(ctx, 'Same geometry, same frame — in both kitchens', 960, 330, { size: 26, weight: 600, color: C.tealDeep, align: 'center', alpha: ramp(u, S.geo + 2, S.geo + 3) });
@@ -1351,7 +1351,7 @@
       [0, 6, 'Trained in simulation, the VLA meets a real kitchen.'],
       [6, 13, 'New texture, light and background — and a different camera pose.'],
       [13, 20, 'A small VLA must absorb all of it from pixels; larger models run slower.'],
-      [20, 27, 'Underneath, the geometry is the same: depth, in the robot’s own frame.'],
+      [20, 27, 'Drop the textures: the geometry, in the robot’s own frame, is the same.'],
       [27, 34, 'The teacher’s world model learns dynamics on this layer, in simulation.'],
       [34, 42, 'In the new kitchen it sees the same layer — and corrects the VLA’s chunk.'],
       [42, 50, 'Its gradient shows the VLA how to adapt; the update keeps what it learned.'],

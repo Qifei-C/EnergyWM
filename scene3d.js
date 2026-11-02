@@ -289,21 +289,24 @@
       // "new kitchen" look: per-mesh colour swaps (linear), light and background changes, clutter
       this.looks = []; this.scene.traverse(o => { if (o.isMesh && o.userData.look != null) this.looks.push({ m: o.material, base: o.material.color.clone(), real: new THREE.Color(o.userData.look).convertSRGBToLinear() }); });
       this.lookState = 0;
-      // geometry layer: a world-anchored overlay pass (height tint + metric grid in the robot/world frame),
-      // identical whatever the textures, lights or camera placement
+      // geometry view: every model drawn as surface normals (world/robot frame) on a 5 cm metric grid; textures are
+      // dropped, so the view is the same whatever the textures, lights or clutter
       this.geo = 0;
       this.geoMat = new THREE.ShaderMaterial({
         uniforms: { opacity: { value: 0 } },
-        vertexShader: 'varying vec3 vW; void main() { vW = (modelMatrix * vec4(position, 1.0)).xyz; vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition; }', // same depth as three.js materials
+        vertexShader: 'varying vec3 vW; varying vec3 vN; void main() { vW = (modelMatrix * vec4(position, 1.0)).xyz; vN = normalize(mat3(modelMatrix) * normal); vec4 mvPosition = modelViewMatrix * vec4(position, 1.0); gl_Position = projectionMatrix * mvPosition; }', // same depth as three.js materials
         fragmentShader: [
-          'uniform float opacity; varying vec3 vW;',
-          'float gl1(float v, float s) { float f = v / s; float d = abs(fract(f - 0.5) - 0.5); float w = fwidth(f); return (1.0 - smoothstep(0.0, w * 1.5, d)) * (1.0 - smoothstep(0.08, 0.25, w)); }',
+          'uniform float opacity; varying vec3 vW; varying vec3 vN;',
+          'float gl1(float v, float s) { float f = v / s; float d = abs(fract(f - 0.5) - 0.5); float w = max(fwidth(f), 1e-3); return (1.0 - smoothstep(0.0, w * 1.5, d)) * (1.0 - smoothstep(0.10, 0.30, w)); }',
           'void main() {',
-          '  float h = smoothstep(0.0, 1.5, vW.z);',
-          '  vec3 c = mix(vec3(0.015, 0.05, 0.07), vec3(0.06, 0.36, 0.40), h);',
-          '  float g = max(gl1(vW.x, 0.20), gl1(vW.y, 0.20));',
-          '  float iz = vW.z > 0.85 ? gl1(vW.z - 0.92, 0.08) : 0.0;',
-          '  c += vec3(0.16, 0.83, 0.75) * (0.22 * g + 0.45 * iz);',
+          // surface normal in the world (robot) frame → classic normal-map colours, slightly toned for the dark film
+          '  vec3 n = normalize(vN);',
+          // world-anchored, but mapped like a familiar normal pass seen from the front: x → red, up → green, toward the viewer (−y) → blue
+          '  vec3 c = vec3(n.x, n.z, -n.y) * 0.5 + 0.5;',
+          '  c = mix(vec3(0.06, 0.08, 0.12), c, 0.82);',
+          // a metric grid (5 cm) laid over every surface, fading where it would alias
+          '  float g = max(max(gl1(vW.x, 0.05), gl1(vW.y, 0.05)), gl1(vW.z, 0.05));',
+          '  c *= 1.0 - 0.5 * g;',
           '  gl_FragColor = vec4(c, opacity);',
           '}'].join('\n'),
         transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2, extensions: { derivatives: true }
@@ -380,7 +383,7 @@
       const put = (m, x, y, z) => { m.position.set(x, y, z); m.castShadow = true; m.receiveShadow = true; CL.add(m); return m; };
       put(box(0.19, 0.07, 0.27, 0xc8412f, { rough: 0.6 }), -0.42, 0.50, COUNTER_Z + 0.135);
       put(box(0.19, 0.072, 0.07, 0xf2c14e, { rough: 0.6 }), -0.42, 0.464, COUNTER_Z + 0.20);
-      put(box(0.36, 0.24, 0.02, 0x9b6b3f, { rough: 0.7 }), -0.10, 0.47, COUNTER_Z + 0.01);
+      put(box(0.36, 0.22, 0.02, 0x9b6b3f, { rough: 0.7 }), -0.22, 0.52, COUNTER_Z + 0.01);
       { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.12, 20), std(0xb9c2cc, { metal: 0.3, rough: 0.35 })); c.rotation.x = Math.PI / 2; put(c, 0.12, 0.50, COUNTER_Z + 0.06); }
       { const c = new THREE.Mesh(new THREE.CylinderGeometry(0.033, 0.033, 0.12, 20), std(0xd2443a, { rough: 0.4 })); c.rotation.x = Math.PI / 2; put(c, 0.20, 0.53, COUNTER_Z + 0.06); }
       { const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.05, 0.11, 20), std(0xb4643c, { rough: 0.8 })); pot.rotation.x = Math.PI / 2; put(pot, 0.98, 0.50, COUNTER_Z + 0.055);
@@ -1017,7 +1020,7 @@
             // right, new kitchen: the same VLA closes 6 cm beside the banana and lifts nothing
             const R = play(this.qMiss, this.trajMiss, [[1.5, 0], [3, 10], [3.6, 10], [5, 20]], t);
             const fR = t < 3 ? 0.04 : t < 3.6 ? lerp(0.04, 0.001, (t - 3) / 0.6) : 0.001;
-            this.geo = 0.85 * sramp(u, S.geo, S.geo + 2);
+            this.geo = sramp(u, S.geo, S.geo + 2);
             const proj3 = v => this.project(v, this.camera3, W2, W2);
             if (t > 3.8 && u < S.geo) { const px = proj3(fieldToWorld(WORLD.start.x - 0.06, 0.22)); if (px) this.label(null, 'misses the grasp', LC.red, { px, size: 26, weight: 700, align: 'center', alpha: ramp(t, 3.8, 4.4) * (1 - ramp(u, S.geo - 0.6, S.geo)) }); }
             this.halves = [
@@ -1027,7 +1030,7 @@
           } else {
             // full frame, the new kitchen with the geometry layer: the VLA's proposal (blue) → correction (orange) → execution
             this.lookFrom(0.78, -1.62, 1.55, 0.42, 0.22, 1.08, 32);
-            this.setLook(1); this.geo = lerp(0.85, 0.42, sramp(u, S.fix, S.fix + 1.5));
+            this.setLook(1); this.geo = 1 - sramp(u, S.exec + 7, S.exec + 9.5); // the teacher's view, then back to the real kitchen
             const t = u - S.exec;
             const F = play(this.qFix, this.trajFix, [[0, 0], [1.2, 6], [2.4, 16], [2.8, 16], [4.0, 26], [8.5, 56], [10, 66]], t);
             const ff = t < 2.4 ? 0.04 : t < 2.8 ? lerp(0.04, 0.018, (t - 2.4) / 0.4) : t < 10 ? 0.018 : t < 10.5 ? lerp(0.018, 0.04, (t - 10) / 0.5) : 0.04, held = t >= 2.6 && t < 10.2;
