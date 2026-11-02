@@ -1,6 +1,6 @@
 # Energy-Field Teachers for Small VLAs — MG 动画
 
-研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 11:52（16 章）、深色“night lab”主题、英文字幕。
+研究计划《WAM 教师指导 → Energy Gradient → 小型 VLA 自主泛化》的动态图形（motion-graphics）解释片。16:9、1920×1080、30 fps、约 12:00（16 章）、深色“night lab”主题、英文字幕。
 内容是研究计划（2026-11-01）；片中出现的数字全部是已有文献的结果，均在画面上标注出处与口径。
 
 ## 目标形态
@@ -25,16 +25,16 @@
 
 ## MP4
 ```bash
-node scripts/render_mp4.js --workers 2 --name energywm_720p --page 'aa=0&scale=0.6&out=720&q3d=1&shadow=1024'
+node scripts/render_mp4.js --workers 2 --name energywm_720p --page 'aa=0&scale=0.6&out=720&shadow=1024'
 ```
 依赖 Node `playwright`（Chromium + SwiftShader）与 `ffmpeg`；每章一个文件写到 `out/`，可断点续跑，最后 `-c copy` 拼接。
 
 ## 进度
 - [x] 叠加层 + 3D 世界 + 播放器（`core.js` / `scene3d.js` / `app.js`），`build.js` 生成 `render.html` 与 `index.html`
-- [x] 主题对齐：16 章（见 `storyboard.md`）—— 小 VLA 已有技能、遇到新组合时借助教师做对、执行验证后更新 VLA（能量学生 / 策略学生）、教师关闭时的前后对照、逐步撤掉教师；第 03 章讲额外推理的用处与代价（直接策略 vs 采样式世界模型规划器、WAM 的不同设计、五类已有方法、Guided Policy Search 渊源）；Level 3 测试设计；附录列出文献数字及其口径
+- [x] 主题对齐：16 章（见 `storyboard.md`）—— 小 VLA 已有技能、遇到新组合时借助教师做对、执行验证后更新 VLA（能量学生 / 策略学生）、教师关闭时的前后对照、逐步撤掉教师；第 03 章讲额外推理的用处与代价（直接策略 vs 采样式世界模型规划器、WAM 的不同设计、五类已有方法、Guided Policy Search 渊源）；Level 3 测试设计；“哪些是新的、哪些不是”；附录列出文献数字及其口径
 - [x] 无伪数据：删除示意曲线图；屏幕上的数字全部来自引用文献并标注出处
 - [x] 深色主题、MathJax 排版公式（不出现 `_` / `^`）、无胶囊气泡、YCB 扫描香蕉
-- [ ] MP4 渲染（21,360 帧；720p 预览约 0.5–0.7 s/帧）
+- [ ] MP4 渲染（21,600 帧；720p 预览约 0.6–0.8 s/帧）
 - [ ] 发布 `index.html` 为 Artifact（附 `assets/panda.glb`、`assets/panda_kin.json`、`assets/banana.glb`）
 
 ## 本地预览

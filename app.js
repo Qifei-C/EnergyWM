@@ -11,13 +11,13 @@
   const headless = params.get('headless') === '1';
   const assetBase = window.MG_ASSET_BASE != null ? window.MG_ASSET_BASE : 'assets/';
   if (headless) document.documentElement.classList.add('headless');
-  // capture options: aa=0 (no MSAA), scale=<3D internal resolution>, out=720 (composite size), q3d=1 (3D at 2 fps behind diagrams), shadow=1024 (shadow map size)
-  window.MG_RENDER_OPTS = { aa: params.get('aa') !== '0', scale: params.get('scale') ? +params.get('scale') : 1, outH: +(params.get('out') || 1080), q3d: params.get('q3d') === '1', shadow: +(params.get('shadow') || 2048) };
+  // capture options: aa=0 (no MSAA), scale=<3D internal resolution>, out=720 (composite size), shadow=1024 (shadow map size)
+  window.MG_RENDER_OPTS = { aa: params.get('aa') !== '0', scale: params.get('scale') ? +params.get('scale') : 1, outH: +(params.get('out') || 1080), shadow: +(params.get('shadow') || 2048) };
 
   const gl = document.getElementById('gl'), prev = document.getElementById('glprev'), ui = document.getElementById('ui');
   for (const c of [prev, ui]) { c.width = W; c.height = H; }
   const uiCtx = ui.getContext('2d'), prevCtx = prev.getContext('2d');
-  let world = null, env = null, ready = false, prevCache = { i: -1, fi: null }, last3d = null;
+  let world = null, env = null, ready = false, prevCache = { i: -1, fi: null };
   let readyResolve; window.__ready = false; window.__readyPromise = new Promise(r => { readyResolve = r; });
   window.__errors = [];
 
@@ -36,9 +36,7 @@
       fiPrev = prevCache.fi;
       prev.style.opacity = String(1 - easeIO(u / FADE)); prev.style.visibility = 'visible';
     } else prev.style.visibility = 'hidden';
-    const ro = window.MG_RENDER_OPTS;
-    if (ro.q3d && core.overlayCovers(t)) { const tq = Math.floor(t * 2) / 2; if (last3d !== tq) { world.update(tq); world.render(); last3d = tq; } }
-    else { world.update(t); world.render(); last3d = null; }
+    world.update(t); world.render(); // every frame, also behind diagrams (no frame-rate shortcut: the background must move smoothly)
     uiCtx.setTransform(1, 0, 0, 1, 0, 0); uiCtx.globalAlpha = 1; uiCtx.clearRect(0, 0, W, H);
     core.draw(uiCtx, t, env, world.frameInfo(), fiPrev);
     return true;

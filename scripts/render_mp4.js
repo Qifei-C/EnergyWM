@@ -8,7 +8,7 @@ const ROOT = path.join(__dirname, '..');
 const argv = process.argv.slice(2), opt = (k, d) => { const i = argv.indexOf(k); return i < 0 ? d : argv[i + 1]; };
 const WORKERS = +opt('--workers', 3), CRF = opt('--crf', '20'), PRESET = opt('--preset', 'veryfast'), FPS = 30, Q = +opt('--quality', 0.92);
 const OUT = path.resolve(ROOT, opt('--out', 'out')), NAME = opt('--name', 'energywm_v1'), ONLY = opt('--scenes', null);
-const PAGEQ = opt('--page', 'aa=0&scale=0.75&out=1080&q3d=1'); // capture options passed to render.html
+const PAGEQ = opt('--page', 'aa=0&scale=0.75&out=1080&shadow=1024'); // capture options passed to render.html
 const core = require(path.join(ROOT, 'core.js'));
 fs.mkdirSync(OUT, { recursive: true });
 const log = (...a) => { const s = `[${new Date().toISOString().slice(11, 19)}] ` + a.join(' '); console.log(s); fs.appendFileSync(path.join(OUT, 'render.log'), s + '\n'); };

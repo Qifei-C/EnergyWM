@@ -238,7 +238,8 @@
     top: { wallY0: 0.0, wallY1: 0.50, goalY0: 0.26, goalY1: 0.38 },
     tallH: 0.42,
     // scene "change the task": a second (blue) bowl becomes the goal, a cup between the bowls must not be touched
-    bowl2X: 1.05, cup: { x0: 0.90, x1: 0.95, h: 0.11 }, goal2: { x0: 0.99, x1: 1.11, z0: 0.03, z1: 0.10 }
+    // (kept inside the arm's top-down workspace; the old bowl is cleared away when the goal changes)
+    bowl2X: 0.88, cup: { x0: 0.645, x1: 0.695, h: 0.11 }, goal2: { x0: 0.82, x1: 0.94, z0: 0.03, z1: 0.10 }
   };
   // grasp point (banana centre, field coords) where the banana's leading tip touches the barrier
   function contactPoint() { return { x: WORLD.barrierX0 - WORLD.bananaHalf - 0.01, z: WORLD.start.z }; }
@@ -343,10 +344,10 @@
     F.L0 = makeField(Object.assign({}, base, { sdf: sideSdf(WORLD.barrierH) }));
     F.L1 = makeField(Object.assign({}, base, { sdf: sideSdf(0) }));
     F.L3 = makeField(Object.assign({}, base, { sdf: sideSdf(WORLD.tallH) }));
-    // L4: new goal (blue bowl) + forbidden contact with the cup and the old bowl
-    const G2 = WORLD.goal2, CU = WORLD.cup, b0 = WORLD.bowlX - WORLD.bowlR, b1 = WORLD.bowlX + WORLD.bowlR;
+    // L4: new goal (blue bowl, replacing the old one) + forbidden contact with the cup
+    const G2 = WORLD.goal2, CU = WORLD.cup;
     F.L4 = makeField(Object.assign({}, base, {
-      sdf: (x, y) => Math.min(sideSdf(WORLD.barrierH)(x, y), rectSdf(x, y, CU.x0, CU.x1, -1, CU.h), rectSdf(x, y, b0, b1, -1, WORLD.bowlH)),
+      sdf: (x, y) => Math.min(sideSdf(WORLD.barrierH)(x, y), rectSdf(x, y, CU.x0, CU.x1, -1, CU.h)),
       goal: (x, y) => x >= G2.x0 && x <= G2.x1 && y >= G2.z0 && y <= G2.z1
     }));
     // L2: top view (x right, y lateral). Wall spans y∈[0,0.50], opening at the far side.
@@ -657,7 +658,7 @@
     { id: 'policy', name: 'Policy student: learning to need it less', dur: 72 },
     { id: 'invest', name: 'Deployment states', dur: 34 },
     { id: 'levels', name: 'Four levels — and the Level 3 test', dur: 56 },
-    { id: 'notclaims', name: 'What we do not claim', dur: 20 },
+    { id: 'notclaims', name: 'What is new — and what is not', dur: 28 },
     { id: 'end', name: 'The proposition', dur: 30 },
     { id: 'appendix', name: 'Appendix: prior numbers and their scope', dur: 22 }
   ];
@@ -1366,25 +1367,37 @@
   // =====================================================================
   function sceneNotClaims(ctx, u) {
     wash(ctx, 0.95);
-    heading(ctx, 'What we do not claim as contributions', 100, 170, 48, ramp(u, 0, 0.8));
-    const cards = [
-      ['No path output', 'an interface choice — planners stay as baselines', 0.6],
-      ['No best-of-N', 'compared on success, cost and adaptation speed', 1.6],
-      ['Using JEPA', 'the question is how well it teaches', 2.6],
-      ['The geometric field', 'if geometry alone suffices, we accept that', 10]
-    ];
-    cards.forEach(([t, s, t0], i) => {
-      const x = 100 + (i % 2) * 880, y = 250 + Math.floor(i / 2) * 230, w = 840, h = 190;
-      ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.8));
-      panelBox(ctx, x, y, w, h, {});
-      tag(ctx, 'NOT A SELLING POINT', x + 32, y + 44, C.red);
-      text(ctx, t, x + 32, y + 100, { fam: SERIF, weight: 600, size: 40, color: C.ink });
-      text(ctx, s, x + 32, y + 150, { size: 24, color: C.mute });
-      ctx.restore();
-    });
+    heading(ctx, 'What is new here — and what is not', 100, 170, 48, ramp(u, 0, 0.8));
+    const col = (x, tagTxt, tagCol, barCol, items, ta) => {
+      ctx.save(); ctx.globalAlpha = ramp(u, ta, ta + 0.6); tag(ctx, tagTxt, x, 272, tagCol); ctx.restore();
+      items.forEach(([t, sub, t0], i) => {
+        const y = 340 + i * 140;
+        ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.7), 10);
+        ctx.fillStyle = barCol; rrect(ctx, x, y - 34, 5, 96, 2); ctx.fill();
+        text(ctx, t, x + 30, y, { size: 31, weight: 600, color: C.ink });
+        text(ctx, sub, x + 30, y + 42, { size: 21, color: C.mute });
+        ctx.restore();
+      });
+    };
+    col(100, 'BUILDING BLOCKS WE REUSE', C.faint, C.line, [
+      ['Geometric fields', 'SDFs and eikonal distance are standard tools', 0.8],
+      ['Action-conditioned world models', 'existing predictors — the question is how well they teach', 3.2],
+      ['Planners and best-of-N', 'kept as baselines: success, cost, adaptation speed', 7.5]
+    ], 0.4);
+    col(1000, 'WHAT IS NEW', C.orangeDeep, C.orange, [
+      ['Correct the VLA’s own chunk', 'one energy from geometry and predicted consequences', 14.3],
+      ['Learn from the corrections', 'verified in execution, replayed with old skills', 17.5],
+      ['Judge it with the teacher off', 'held-out starts, equal adaptation budget', 21.2]
+    ], 14);
+    ctx.save(); appear(ctx, ramp(u, 23.5, 24.3));
+    ctx.fillStyle = C.orange; ctx.fillRect(100, 790, 60, 3);
+    text(ctx, 'Ablations separate what geometry alone gives from what predicted consequences add.', 100, 836, { size: 25, color: C.ink });
+    ctx.restore();
     captions(ctx, u, [
-      [0, 10, 'Not claimed as contributions: skipping paths or best-of-N, or using JEPA.'],
-      [10, 20.2, 'And if geometry alone solves the task, the experiment will say so.']
+      [0, 7, 'Much of the toolbox already exists: geometric fields, world models, planners.'],
+      [7, 14, 'We reuse them, and keep planners and best-of-N as baselines.'],
+      [14, 21, 'What is new: the teacher corrects the VLA’s own chunk, and the VLA learns from it.'],
+      [21, 28.2, 'It is judged with the teacher off — and ablated to see what geometry alone gives.']
     ]);
   }
 
