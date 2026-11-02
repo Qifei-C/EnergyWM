@@ -13,6 +13,7 @@
     "three": "0.128.0"
   },
   "devDependencies": {
+    "kokoro-js": "^1.2.1",
     "mathjax-full": "^3.2.2",
     "playwright": "^1.64.1"
   }

@@ -29,6 +29,12 @@ node scripts/render_mp4.js --workers 2 --name energywm_720p --page 'aa=0&scale=0
 ```
 依赖 Node `playwright`（Chromium + SwiftShader）与 `ffmpeg`；每章一个文件写到 `out/`，可断点续跑，最后 `-c copy` 拼接。
 
+配音（Kokoro-82M，本地运行，Apache-2.0）：逐句朗读字幕，放在字幕出现后 0.15 s，必要时最多加速到 1.2× 以免压到下一句；混成一条音轨、响度归一到 −16 LUFS，再无损合进视频（`out/energywm_1080p_vo.mp4`）。符号与缩写的读法在 `scripts/voiceover.js` 的 `SPOKEN` 表里；改字幕后重跑只合成改动的句子。
+```bash
+node scripts/voiceover.js --check            # 只打印朗读稿
+node scripts/voiceover.js --voice af_heart   # 合成 + 混音 + 合并；逐句时长见 out/vo/<voice>/report.tsv
+```
+
 有 GPU 的机器（如 Apple Silicon）用系统 Chrome + 硬件 WebGL，完整 1080p 画质约 20–60 ms/帧：
 ```bash
 node scripts/render_mp4.js --channel chrome --gpu --workers 3 --name energywm_1080p --quality 0.95 --crf 18 --preset medium --page 'aa=1&scale=1&out=1080&q3d=1&shadow=2048'
