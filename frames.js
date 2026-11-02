@@ -12,7 +12,7 @@ const t0 = Date.now();
 for (const t of times) {
   if (isNaN(t)) continue;
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1;
-  core.draw(ctx, t, env);
+  core.draw(ctx, t, env, null, null, { opaque: true }); // 2D overlay only (no 3D layer)
   fs.writeFileSync(path.join(outDir, `f_${String(t).replace('.', 'p')}.png`), cv.toBuffer('image/png'));
 }
 console.log(`rendered ${times.length} frames in ${Date.now() - t0} ms; total duration ${core.DUR}s`);

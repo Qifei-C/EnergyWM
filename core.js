@@ -10,19 +10,24 @@
   const W = 1920, H = 1080, FADE = 0.5;
 
   // ---- design tokens (fixed "paper" look for the film itself) ----
+  // Theme "night lab": deep ink background, luminous accents. Keys keep their roles:
+  // paper = frame background, panel = card fill, ink = primary text, *Deep = emphasis text on dark,
+  // *Soft = dark tinted fills.
   const C = {
-    paper: '#F6F7F9', panel: '#FFFFFF', ink: '#1C2533', mute: '#5B6676', faint: '#98A3B3',
-    grid: '#DCE1E8', line: '#C3CAD5', band: '#EEF1F5',
-    blue: '#2F5BB7', blueSoft: '#C2D0EE', blueDeep: '#1D3F86',
-    orange: '#D4702A', orangeSoft: '#F3D2B5', orangeDeep: '#9E4F17',
-    teal: '#17907F', tealSoft: '#BFE3DD', tealDeep: '#0E6358',
-    red: '#C43D32', redSoft: '#F1C9C5', green: '#3A8F5C', greenSoft: '#CBE6D3',
-    banana: '#E7B93A', bananaDk: '#B98A14', slate: '#6F7D90', slateDk: '#4C5868', slateSoft: '#C9D0DA',
+    paper: '#0B0F15', paper2: '#121A26', panel: '#141B26', panelHi: '#1B2433',
+    ink: '#EEF2F7', mute: '#A4AFC0', faint: '#6F7B8E',
+    grid: '#283243', line: '#344055', band: '#111823',
+    blue: '#6EA8FF', blueSoft: '#1A2B4A', blueDeep: '#A9CBFF',
+    orange: '#FFA24C', orangeSoft: '#3A2614', orangeDeep: '#FFC48A',
+    teal: '#2DD4BF', tealSoft: '#123A37', tealDeep: '#7CEBDD',
+    violet: '#B49BFF', violetSoft: '#271F45',
+    red: '#FF6B6B', redSoft: '#3D1C22', green: '#4ADE80', greenSoft: '#123222',
+    banana: '#FACC15', bananaDk: '#A16207', slate: '#8796AB', slateDk: '#5B677A', slateSoft: '#2B3442',
     bowl: '#7F91A8', bowlDk: '#5E6E84', table: '#E6EAF0', tableEdge: '#C9D0DA'
   };
   const SERIF = 'Lora, "DejaVu Serif", Georgia, serif';
   const SANS = 'Inter, "DejaVu Sans", Arial, sans-serif';
-  const MATH = 'Lora, "DejaVu Serif", Georgia, serif';
+  const MATH_FAM = 'Lora, "DejaVu Serif", Georgia, serif';
 
   // ---- small math helpers ----
   const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -58,15 +63,44 @@
       return [lerp(a[0], b[0], f), lerp(a[1], b[1], f), lerp(a[2], b[2], f)];
     };
   }
-  const CMAP_WARM = makeCmap(['#FBF2E6', '#F0C79A', '#D4702A', '#7A3A11']);
-  const CMAP_TEAL = makeCmap(['#EAF6F3', '#9FD5CC', '#17907F', '#0B3F38']);
+  // field colour maps for the dark set: low values (near the goal / low energy) glow brightest
+  const CMAP_WARM = makeCmap(['#FFF1D6', '#FFB868', '#E0661B', '#6B240C', '#2A1208']);
+  const CMAP_TEAL = makeCmap(['#D5FBF4', '#5EEAD4', '#14A594', '#0B4F49', '#0A2427']);
 
   // ---- text helpers ----
   function font(ctx, weight, size, fam, italic) {
     ctx.font = `${italic ? 'italic ' : ''}${weight} ${size}px ${fam}`;
   }
+  // split "E_geo(A)" into runs; "_x" / "_{xy}" become subscripts
+  function richRuns(s) {
+    const runs = []; let i = 0, cur = '';
+    while (i < s.length) {
+      if (s[i] === '_' && i + 1 < s.length) {
+        if (cur) { runs.push({ t: cur, sub: false }); cur = ''; }
+        let j = i + 1, tok = '';
+        if (s[j] === '{') { j++; while (j < s.length && s[j] !== '}') tok += s[j++]; j++; }
+        else while (j < s.length && /[\p{L}\p{N}]/u.test(s[j])) tok += s[j++];
+        runs.push({ t: tok, sub: true }); i = j; continue;
+      }
+      cur += s[i++];
+    }
+    if (cur) runs.push({ t: cur, sub: false });
+    return runs;
+  }
+  function richDraw(ctx, s, x, y, o, stroke) {
+    const size = o.size || 28, runs = richRuns(s), ssz = Math.round(size * 0.66);
+    const setF = r => font(ctx, o.weight || 400, r.sub ? ssz : size, o.fam || SANS, o.italic);
+    let w = 0; for (const r of runs) { setF(r); r.w = ctx.measureText(r.t).width + (r.sub ? 1 : 0); w += r.w; }
+    let cx = (o.align === 'center') ? x - w / 2 : (o.align === 'right') ? x - w : x;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    for (const r of runs) { setF(r); const yy = r.sub ? y + size * 0.2 : y; if (stroke) ctx.strokeText(r.t, cx, yy); ctx.fillText(r.t, cx, yy); cx += r.w; }
+    return w;
+  }
   function text(ctx, s, x, y, o) {
     o = o || {};
+    if (s.indexOf('_') >= 0) {
+      ctx.save(); if (o.alpha != null) ctx.globalAlpha *= o.alpha; ctx.fillStyle = o.color || C.ink; richDraw(ctx, s, x, y, o, false); ctx.restore(); return;
+    }
     font(ctx, o.weight || 400, o.size || 28, o.fam || SANS, o.italic);
     ctx.fillStyle = o.color || C.ink;
     ctx.textAlign = o.align || 'left';
@@ -155,12 +189,15 @@
     if (p2 > 0) { ctx.beginPath(); ctx.moveTo(cx + r, cy - r); ctx.lineTo(cx + r - 2 * r * p2, cy - r + 2 * r * p2); ctx.stroke(); }
     ctx.restore();
   }
+  // dark glass card; o.stroke = accent colour (subtle border), o.hot = emphasised border, o.bar = accent bar on the left
   function panelBox(ctx, x, y, w, h, o) {
     o = o || {};
     ctx.save();
-    rrect(ctx, x, y, w, h, o.r || 14);
-    ctx.fillStyle = o.fill || C.panel; ctx.fill();
-    ctx.strokeStyle = o.stroke || C.grid; ctx.lineWidth = o.lw || 2; ctx.stroke();
+    rrect(ctx, x, y, w, h, o.r || 16);
+    ctx.fillStyle = o.fill || 'rgba(20,27,38,0.92)'; ctx.fill();
+    ctx.strokeStyle = o.stroke ? rgba(o.stroke, o.hot ? 0.95 : 0.45) : 'rgba(255,255,255,0.10)';
+    ctx.lineWidth = o.hot ? 2.5 : 1.5; ctx.stroke();
+    if (o.bar) { ctx.fillStyle = o.bar; rrect(ctx, x, y + 16, 4, h - 32, 2); ctx.fill(); }
     ctx.restore();
   }
   // partially drawn polyline (progress 0..1 along cumulative length)
@@ -188,95 +225,23 @@
       rect() { return [x0, y0, w, h]; }
     };
   }
-  // Scene geometry (metres)
+  // Scene geometry in FIELD coordinates (metres): fx = x_world − X_OFF, fz = z_world − counter top.
+  // The 3D layer (scene3d.js) builds the same objects from these numbers.
   const WORLD = {
-    barrierX0: 0.56, barrierX1: 0.60, barrierH: 0.30,
-    bowlX: 1.0, bowlR: 0.085, bowlH: 0.075,
+    barrierX0: 0.51, barrierX1: 0.55, barrierH: 0.24,
+    bowlX: 0.81, bowlR: 0.085, bowlH: 0.075,
     rObj: 0.045, // inflation radius (gripper + banana)
-    goal: { x0: 0.94, x1: 1.06, z0: 0.03, z1: 0.10 },
-    start: { x: 0.25, z: 0.17 }
+    bananaHalf: 0.099, // YCB banana scan: 0.197 m long
+    goal: { x0: 0.75, x1: 0.87, z0: 0.03, z1: 0.10 },
+    start: { x: 0.30, z: 0.17 },
+    // L2 (top view, x right / y lateral): wall and goal footprint
+    top: { wallY0: 0.0, wallY1: 0.50, goalY0: 0.26, goalY1: 0.38 },
+    tallH: 0.42,
+    // scene "change the task": a second (blue) bowl becomes the goal, a cup between the bowls must not be touched
+    bowl2X: 1.05, cup: { x0: 0.90, x1: 0.95, h: 0.11 }, goal2: { x0: 0.99, x1: 1.11, z0: 0.03, z1: 0.10 }
   };
-
-  function drawTable(ctx, v) {
-    ctx.save();
-    const yt = v.py(0);
-    ctx.fillStyle = C.table; ctx.fillRect(v.x0, yt, v.w, v.y0 + v.h - yt + 0.001);
-    line(ctx, v.x0, yt, v.x0 + v.w, yt, C.tableEdge, 3);
-    ctx.restore();
-  }
-  function drawBarrier(ctx, v, hgt, o) {
-    o = o || {};
-    const x = v.px(WORLD.barrierX0), w = v.px(WORLD.barrierX1) - x, top = v.py(hgt), bot = v.py(0);
-    ctx.save();
-    ctx.fillStyle = o.color || C.slate; rrect(ctx, x, top, w, bot - top, 3); ctx.fill();
-    ctx.fillStyle = C.slateDk; ctx.fillRect(x, top, w, 4);
-    ctx.restore();
-  }
-  function drawBowl(ctx, v, o) {
-    o = o || {};
-    const cx = v.px(WORLD.bowlX), yb = v.py(0), r = WORLD.bowlR * v.scale, hh = WORLD.bowlH * v.scale;
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(cx - r * 1.12, yb - hh);
-    ctx.quadraticCurveTo(cx - r * 1.05, yb - 2, cx - r * 0.55, yb);
-    ctx.lineTo(cx + r * 0.55, yb);
-    ctx.quadraticCurveTo(cx + r * 1.05, yb - 2, cx + r * 1.12, yb - hh);
-    ctx.lineTo(cx + r * 0.92, yb - hh);
-    ctx.quadraticCurveTo(cx + r * 0.85, yb - 14, cx + r * 0.45, yb - 10);
-    ctx.lineTo(cx - r * 0.45, yb - 10);
-    ctx.quadraticCurveTo(cx - r * 0.85, yb - 14, cx - r * 0.92, yb - hh);
-    ctx.closePath();
-    ctx.fillStyle = o.color || C.bowl; ctx.fill();
-    ctx.strokeStyle = C.bowlDk; ctx.lineWidth = 2; ctx.stroke();
-    ctx.restore();
-  }
-  function drawBanana(ctx, x, y, ang, s, o) {
-    // crescent banana centred at (x,y) in px, s = half-length in px
-    o = o || {};
-    ctx.save(); ctx.translate(x, y); ctx.rotate(ang || 0);
-    ctx.beginPath();
-    ctx.moveTo(-s, -s * 0.12);
-    ctx.quadraticCurveTo(0, s * 0.95, s, -s * 0.12);
-    ctx.quadraticCurveTo(0, s * 0.45, -s, -s * 0.12);
-    ctx.closePath();
-    ctx.fillStyle = o.color || C.banana; ctx.fill();
-    ctx.strokeStyle = C.bananaDk; ctx.lineWidth = 2.5; ctx.lineJoin = 'round'; ctx.stroke();
-    ctx.fillStyle = C.bananaDk;
-    ctx.beginPath(); ctx.arc(-s, -s * 0.12, s * 0.07, 0, 7); ctx.fill();
-    ctx.beginPath(); ctx.arc(s, -s * 0.12, s * 0.07, 0, 7); ctx.fill();
-    ctx.restore();
-  }
-  // gripper with the banana hanging below; (gx,gz) = grasp point (banana centre) in metres
-  function drawGripper(ctx, v, gx, gz, o) {
-    o = o || {};
-    const s = v.scale, px = v.px(gx), py = v.py(gz);
-    const fingerH = 0.065 * s, fingerW = 0.014 * s, palmW = 0.11 * s, palmH = 0.03 * s;
-    const bananaOff = (o.bananaDx || 0) * s, bananaDy = (o.bananaDz || 0) * s;
-    // arm: two links from an anchor above-left
-    const ax = v.px(0.06), ay = v.py(0.62);
-    const wx = px, wy = py - fingerH - palmH;
-    const L1 = 0.46 * s, L2 = 0.46 * s;
-    let d = Math.hypot(wx - ax, wy - ay); d = Math.min(d, L1 + L2 - 1);
-    const a = Math.atan2(wy - ay, wx - ax);
-    const cosb = clamp((L1 * L1 + d * d - L2 * L2) / (2 * L1 * d), -1, 1);
-    const b = Math.acos(cosb);
-    const ex = ax + L1 * Math.cos(a - b), ey = ay + L1 * Math.sin(a - b);
-    ctx.save();
-    ctx.globalAlpha *= (o.armAlpha == null ? 1 : o.armAlpha);
-    polyline(ctx, [[ax, ay], [ex, ey], [wx, wy]], C.slateSoft, 0.05 * s);
-    polyline(ctx, [[ax, ay], [ex, ey], [wx, wy]], C.slate, 0.03 * s);
-    dot(ctx, ax, ay, 0.03 * s, C.slateDk); dot(ctx, ex, ey, 0.024 * s, C.slateDk);
-    ctx.restore();
-    // palm + fingers
-    ctx.save();
-    ctx.fillStyle = C.slateDk;
-    rrect(ctx, px - palmW / 2, py - fingerH - palmH, palmW, palmH, 4); ctx.fill();
-    const open = o.open || 0;
-    rrect(ctx, px - palmW / 2 - open, py - fingerH, fingerW, fingerH, 3); ctx.fill();
-    rrect(ctx, px + palmW / 2 - fingerW + open, py - fingerH, fingerW, fingerH, 3); ctx.fill();
-    ctx.restore();
-    if (!o.noBanana) drawBanana(ctx, px + bananaOff, py + 0.012 * s + bananaDy, o.bananaAng || 0, 0.07 * s);
-  }
+  // grasp point (banana centre, field coords) where the banana's leading tip touches the barrier
+  function contactPoint() { return { x: WORLD.barrierX0 - WORLD.bananaHalf - 0.01, z: WORLD.start.z }; }
 
   // ---- eikonal field (fast sweeping) ----
   function rectSdf(x, y, ax, bx, ay, by) {
@@ -373,15 +338,22 @@
   }
   const goalSide = (x, y) => x >= WORLD.goal.x0 && x <= WORLD.goal.x1 && y >= WORLD.goal.z0 && y <= WORLD.goal.z1;
   function buildFields() {
-    const base = { nx: NX, ny: NY, x0: FX0, x1: FX1, y0: FZ0, y1: FZ1, rObj: WORLD.rObj, dmax: 0.12, smin: 0.15, goal: goalSide };
+    const base = { nx: NX, ny: NY, x0: FX0, x1: FX1, y0: FZ0, y1: FZ1, rObj: WORLD.rObj, dmax: 0.06, smin: 0.15, goal: goalSide };
     const F = {};
     F.L0 = makeField(Object.assign({}, base, { sdf: sideSdf(WORLD.barrierH) }));
     F.L1 = makeField(Object.assign({}, base, { sdf: sideSdf(0) }));
-    F.L3 = makeField(Object.assign({}, base, { sdf: sideSdf(0.42) }));
+    F.L3 = makeField(Object.assign({}, base, { sdf: sideSdf(WORLD.tallH) }));
+    // L4: new goal (blue bowl) + forbidden contact with the cup and the old bowl
+    const G2 = WORLD.goal2, CU = WORLD.cup, b0 = WORLD.bowlX - WORLD.bowlR, b1 = WORLD.bowlX + WORLD.bowlR;
+    F.L4 = makeField(Object.assign({}, base, {
+      sdf: (x, y) => Math.min(sideSdf(WORLD.barrierH)(x, y), rectSdf(x, y, CU.x0, CU.x1, -1, CU.h), rectSdf(x, y, b0, b1, -1, WORLD.bowlH)),
+      goal: (x, y) => x >= G2.x0 && x <= G2.x1 && y >= G2.z0 && y <= G2.z1
+    }));
     // L2: top view (x right, y lateral). Wall spans y∈[0,0.50], opening at the far side.
+    const TP = WORLD.top;
     F.L2 = makeField(Object.assign({}, base, {
-      rObj: WORLD.rObj, sdf: (x, y) => rectSdf(x, y, WORLD.barrierX0, WORLD.barrierX1, -1, 0.50),
-      goal: (x, y) => x >= 0.94 && x <= 1.06 && y >= 0.26 && y <= 0.38
+      rObj: WORLD.rObj, sdf: (x, y) => rectSdf(x, y, WORLD.barrierX0, WORLD.barrierX1, -1, TP.wallY1),
+      goal: (x, y) => x >= WORLD.goal.x0 && x <= WORLD.goal.x1 && y >= TP.goalY0 && y <= TP.goalY1
     }));
     // local attraction + repulsion energy on the L0 grid
     const f = F.L0, N = f.nx * f.ny, E = new Float32Array(N);
@@ -407,8 +379,8 @@
       return { attract: ga, repel: gr };
     };
     // equilibrium x along z = 0.17 where ∂E/∂x = 0 (force balance)
-    let xe = 0.42; { const z = 0.17; let lo = 0.30, hi = 0.515; for (let it = 0; it < 40; it++) { const mid = (lo + hi) / 2; const p = F.Eloc_parts(mid, z); const gxs = p.attract[0] + p.repel[0]; if (gxs < 0) lo = mid; else hi = mid; } xe = (lo + hi) / 2; }
-    F.pStar = { x: xe, z: 0.17 };
+    let xe = 0.42; { const z = WORLD.start.z; let lo = WORLD.start.x, hi = WORLD.barrierX0 - WORLD.rObj; for (let it = 0; it < 40; it++) { const mid = (lo + hi) / 2; const p = F.Eloc_parts(mid, z); const gxs = p.attract[0] + p.repel[0]; if (gxs < 0) lo = mid; else hi = mid; } xe = (lo + hi) / 2; }
+    F.pStar = { x: xe, z: WORLD.start.z };
     return F;
   }
 
@@ -419,11 +391,11 @@
     const img = cx.createImageData(field.nx, field.ny), d = img.data;
     for (let j = 0; j < field.ny; j++) for (let i = 0; i < field.nx; i++) {
       const k = j * field.nx + i, p = ((field.ny - 1 - j) * field.nx + i) * 4; // flip y
-      let col;
-      if (field.obs[k]) col = hexToRgb(C.slateSoft);
-      else if (field.goal[k]) col = hexToRgb(C.greenSoft);
-      else { const v = valueOf(k); col = v == null ? hexToRgb(C.paper) : cmap(v); }
-      d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = 255;
+      let col, a = 255;
+      if (field.obs[k]) { col = [58, 68, 84]; a = 150; }            // inflated obstacle: muted, half see-through
+      else if (field.goal[k]) { col = hexToRgb(C.green); a = 230; }
+      else { const v = valueOf(k); if (v == null) { col = [0, 0, 0]; a = 0; } else col = cmap(v); } // not yet reached: transparent
+      d[p] = col[0]; d[p + 1] = col[1]; d[p + 2] = col[2]; d[p + 3] = a;
     }
     cx.putImageData(img, 0, 0);
     return cv;
@@ -467,792 +439,1069 @@
     ctx.restore();
   }
 
-  // ---- common chrome ----
-  function background(ctx) { ctx.fillStyle = C.paper; ctx.fillRect(0, 0, W, H); }
+  // ---- field textures for the 3D slice planes ----
+  // The canvas (normally 1200×640) maps the field domain [FX0,FX1]×[FZ0,FZ1] with fz up, so a
+  // THREE.CanvasTexture (flipY = true) on a PlaneGeometry shows the field upright.
+  let texEnv = null;
+  function getTexEnv(canvas) {
+    if (!texEnv) {
+      const mk = (typeof document !== 'undefined') ? ((w, h) => Object.assign(document.createElement('canvas'), { width: w, height: h }))
+        : (canvas && canvas.constructor ? (w, h) => new canvas.constructor(w, h) : null);
+      texEnv = { makeCanvas: mk, F: getF(), cache: {} };
+    }
+    return texEnv;
+  }
+  function paintFieldTexture(canvas, mode, cut, opts) {
+    opts = opts || {};
+    const ctx = canvas.getContext('2d'), F = getF(), field = F[opts.field || 'L0'], tenv = getTexEnv(canvas);
+    const v = makeView(0, 0, canvas.width, FX0, FX1, FZ0, FZ1);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 1; ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const tm = field.tmax;
+    if (opts.contoursOnly) {
+      const levels = []; for (let k = 1; k <= 22; k++) levels.push(tm * k / 23);
+      drawContours(ctx, field, v, levels, rgba(C.teal, 0.9), 3, cut);
+      return;
+    }
+    drawField(ctx, tenv, field, v, mode, cut, 1);
+    if (mode === 'T') {
+      const levels = []; for (let k = 1; k <= 18; k++) levels.push(tm * k / 19);
+      drawContours(ctx, field, v, levels, 'rgba(225,255,250,0.42)', 2, cut);
+      if (opts.quiver > 0) drawQuiver(ctx, field, v, 9, 24, '#F0FFFC', 0.8 * opts.quiver, cut);
+    } else {
+      // E: a few iso-lines of the local energy for shape
+      const E = F.Eloc, levels = [0.4, 0.8, 1.2, 1.6, 2.0, 2.4, 2.8, 3.2];
+      ctx.save(); ctx.strokeStyle = 'rgba(255,236,210,0.35)'; ctx.lineWidth = 1.6; ctx.beginPath();
+      for (const lv of levels) for (const s of contourSegs(field, E, lv, 50)) { ctx.moveTo(v.px(s[0]), v.py(s[1])); ctx.lineTo(v.px(s[2]), v.py(s[3])); }
+      ctx.stroke(); ctx.restore();
+    }
+    // thin frame so the slice reads as a plane
+    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 3; ctx.strokeRect(2, 2, canvas.width - 4, canvas.height - 4); ctx.restore();
+  }
+
+  // ---- common chrome (theme "night lab"; the overlay is transparent over the 3D layer) ----
+  function background(ctx) {
+    const g = ctx.createRadialGradient(W * 0.5, H * 0.36, 60, W * 0.5, H * 0.5, W * 0.78);
+    g.addColorStop(0, C.paper2); g.addColorStop(1, C.paper);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  // opaque-ish backdrop for diagram beats (the 3D keeps moving faintly underneath)
+  function wash(ctx, a) { if (a <= 0) return; ctx.save(); ctx.globalAlpha *= a; background(ctx); ctx.restore(); }
+  function hWash(ctx, x0, x1, a, fromRight) {
+    const g = ctx.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, rgba(C.paper, fromRight ? 0 : a)); g.addColorStop(1, rgba(C.paper, fromRight ? a : 0));
+    ctx.save(); ctx.fillStyle = g;
+    if (fromRight) ctx.fillRect(x0, 0, W - x0, H); else ctx.fillRect(0, 0, x1, H);
+    ctx.restore();
+  }
+  function topWash(ctx, h, a) {
+    const g = ctx.createLinearGradient(0, 0, 0, h);
+    g.addColorStop(0, rgba(C.paper, a)); g.addColorStop(0.55, rgba(C.paper, a * 0.8)); g.addColorStop(1, rgba(C.paper, 0));
+    ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, W, h); ctx.restore();
+  }
+  function vignette(ctx, a) {
+    const g = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.35, W / 2, H * 0.5, W * 0.72);
+    g.addColorStop(0, rgba(C.paper, 0)); g.addColorStop(1, rgba(C.paper, a));
+    ctx.save(); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
+  // text with a dark halo so it stays legible over the 3D layer
+  function haloText(ctx, s, x, y, o) {
+    o = o || {};
+    const size = o.size || 24;
+    font(ctx, o.weight || 400, size, o.fam || SANS, o.italic);
+    ctx.save();
+    if (o.alpha != null) ctx.globalAlpha *= o.alpha;
+    ctx.textAlign = o.align || 'left'; ctx.textBaseline = 'alphabetic';
+    ctx.lineJoin = 'round'; ctx.lineWidth = o.halo || Math.max(5, size * 0.28);
+    ctx.strokeStyle = rgba(C.paper, 0.8); ctx.fillStyle = o.color || C.ink;
+    if (s.indexOf('_') >= 0) { richDraw(ctx, s, x, y, o, true); ctx.restore(); return; }
+    ctx.strokeText(s, x, y); ctx.fillText(s, x, y);
+    ctx.restore();
+  }
+  // typeset formulas (math.js → decoded SVG images, tinted per colour and cached); y = baseline
+  let MATH = null, mkCanvas = null; const mathCache = {};
+  const MATH_FALLBACK = { vtheta: 'vθ', Ahat: 'Â', KAhat: 'K(Â)', EKAhat: 'E(K(Â))', guided: 'vθ − λ∇E', eikonal: 'S(x) ‖∇T(x)‖ = 1', taylor: 'E(A + ΔA) ≈ E(A) + ∇E(A)ᵀΔA', energy1: 'E(A; g, c) = Egeo(A; c)', energy2: '+ ℓ(Fθ(h, A); g, c)', Ftheta: 'Fθ', gc: 'g, c', update: 'vθ − λ𝒫(∇E)', Pcal: '𝒫', Kmap: 'K', Fmap: 'Fθ(h, ·)', EgeoK: 'Egeometry(K(Â))', Econs: 'ℓ(Fθ(h, Â); g, c)', Esum: 'E(Â) = Egeometry(K(Â)) + ℓ(Fθ(h, Â); g, c)', piUpdate: 'π(φk) → π(φk+1)' };
+  function setMath(m) { MATH = m; }
+  function mathText(ctx, key, x, y, o) {
+    o = o || {};
+    const size = o.size || 28, col = o.color || C.ink, m = MATH && MATH[key];
+    if (!m || !mkCanvas) { text(ctx, MATH_FALLBACK[key] || key, x, y, { size, color: col, align: o.align, fam: MATH_FAM, italic: true, alpha: o.alpha }); return 0; }
+    const vb = m.vb, sc = size / 1000, w = vb[2] * sc, h = vb[3] * sc, ck = key + '|' + col + '|' + size;
+    let cv = mathCache[ck];
+    if (!cv) {
+      cv = mkCanvas(Math.ceil(w) + 4, Math.ceil(h) + 4); const g = cv.getContext('2d');
+      g.drawImage(m.img, 2, 2, w, h); g.globalCompositeOperation = 'source-in'; g.fillStyle = col; g.fillRect(0, 0, cv.width, cv.height);
+      mathCache[ck] = cv;
+    }
+    const dx = o.align === 'center' ? x - w / 2 : o.align === 'right' ? x - w : x;
+    ctx.save(); if (o.alpha != null) ctx.globalAlpha *= o.alpha;
+    ctx.drawImage(cv, dx - 2, y + vb[1] * sc - 2);
+    ctx.restore();
+    return w;
+  }
+  // section label over 3D: short accent bar + text
+  function subhead(ctx, s, x, y, o) {
+    o = o || {};
+    ctx.save(); if (o.alpha != null) ctx.globalAlpha *= o.alpha;
+    ctx.fillStyle = o.color || C.orange; rrect(ctx, x, y - 22, 4, 26, 2); ctx.fill();
+    haloText(ctx, s, x + 18, y, { size: o.size || 26, weight: 600, color: C.ink });
+    ctx.restore();
+  }
+  function tag(ctx, s, x, y, col, o) { // small spaced caps label
+    o = o || {};
+    spaced(ctx, s, x, y, { size: o.size || 16, weight: 600, color: col || C.faint, spacing: 2 });
+  }
+  function drawLabels(ctx, fi) {
+    if (!fi || !fi.labels) return;
+    for (const l of fi.labels) {
+      if (!l.px || l.alpha === 0) continue;
+      haloText(ctx, l.text, l.px[0] + (l.dx || 0), l.px[1] + (l.dy || 0), {
+        size: l.size || 22, weight: l.weight || (l.math ? 400 : 600), color: l.color || C.ink, align: l.align || 'left',
+        fam: l.math ? MATH_FAM : SANS, italic: !!l.math, alpha: l.alpha == null ? 1 : l.alpha
+      });
+    }
+  }
   function eyebrow(ctx, idx, name, alpha) {
     ctx.save(); ctx.globalAlpha *= alpha == null ? 1 : alpha;
-    spaced(ctx, `${String(idx).padStart(2, '0')}  ·  ${name.toUpperCase()}`, 80, 76, { size: 20, weight: 500, color: C.mute, spacing: 2.2 });
+    const num = String(idx).padStart(2, '0');
+    font(ctx, 700, 20, SANS); const nw = ctx.measureText(num).width;
+    haloText(ctx, num, 80, 76, { size: 20, weight: 700, color: C.orange });
+    ctx.fillStyle = rgba(C.ink, 0.35); ctx.fillRect(80 + nw + 14, 68, 22, 2);
+    ctx.lineJoin = 'round';
+    spaced(ctx, name.toUpperCase(), 80 + nw + 50, 76, { size: 18, weight: 600, color: C.mute, spacing: 2.4 });
     ctx.restore();
   }
   function caption(ctx, s, alpha) {
     if (!s || alpha <= 0) return;
     ctx.save(); ctx.globalAlpha *= alpha;
-    font(ctx, 400, 30, SANS);
-    const lines = wrap(ctx, s, 1560);
-    const lh = 42, top = 960;
-    ctx.fillStyle = rgba(C.ink, 0.06);
-    rrect(ctx, 120, top - 36, 1680, 28 + lines.length * lh + 20, 10); ctx.fill();
-    ctx.fillStyle = C.ink; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    lines.forEach((ln, i) => ctx.fillText(ln, W / 2, top + i * lh));
+    const g = ctx.createLinearGradient(0, H - 250, 0, H);
+    g.addColorStop(0, rgba(C.paper, 0)); g.addColorStop(0.55, rgba(C.paper, 0.62)); g.addColorStop(1, rgba(C.paper, 0.86));
+    ctx.fillStyle = g; ctx.fillRect(0, H - 250, W, 250);
+    font(ctx, 400, 34, SANS);
+    const lines = wrap(ctx, s, 1600), lh = 46, top = 1004 - (lines.length - 1) * lh;
+    lines.forEach((ln, i) => haloText(ctx, ln, W / 2, top + i * lh, { size: 34, color: '#F4F7FB', align: 'center', halo: 7 }));
     ctx.restore();
   }
   function progressLine(ctx, frac) {
-    ctx.fillStyle = C.grid; ctx.fillRect(0, H - 6, W, 6);
-    ctx.fillStyle = C.ink; ctx.fillRect(0, H - 6, W * frac, 6);
+    ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fillRect(0, H - 4, W, 4);
+    ctx.fillStyle = rgba(C.orange, 0.85); ctx.fillRect(0, H - 4, W * frac, 4);
   }
   function heading(ctx, s, x, y, size, alpha, col) {
     ctx.save(); ctx.globalAlpha *= alpha == null ? 1 : alpha;
-    text(ctx, s, x, y, { fam: SERIF, weight: 600, size: size || 44, color: col || C.ink });
+    haloText(ctx, s, x, y, { fam: SERIF, weight: 600, size: size || 44, color: col || C.ink });
     ctx.restore();
   }
-  // pick which caption (from a list of [start,end,text]) is active, with 0.4 s fades
   function captions(ctx, u, list) {
     for (const [a, b, s] of list) {
       const al = fade(u, a, a + 0.4, b - 0.3, b);
       if (al > 0) caption(ctx, s, al);
     }
   }
-  function bullets(ctx, items, x, y, maxW, u, t0, dt, o) {
-    o = o || {}; let yy = y;
-    items.forEach((it, i) => {
-      const al = ramp(u, t0 + i * dt, t0 + i * dt + 0.5);
-      if (al <= 0) { yy += o.gap || 52; return; }
-      ctx.save(); ctx.globalAlpha *= al;
-      ctx.translate((1 - easeOut(al)) * -14, 0);
-      dot(ctx, x + 6, yy - 9, 5, o.dotColor || C.blue);
-      const hgt = paragraph(ctx, it, x + 26, yy, maxW - 26, { size: o.size || 24, color: o.color || C.ink, lh: o.lh || 32 });
-      ctx.restore();
-      yy += Math.max(hgt, 0) + (o.gap || 20);
-    });
-    return yy;
+  // check / cross / partial marks for the capability matrix
+  function mark(ctx, kind, cx, cy, r) {
+    const col = kind === 'yes' ? C.green : kind === 'no' ? C.red : C.orange;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = rgba(col, 0.14); ctx.fill();
+    ctx.lineWidth = 2.5; ctx.strokeStyle = col; ctx.stroke();
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.lineWidth = 3.5; ctx.beginPath();
+    if (kind === 'yes') { ctx.moveTo(cx - r * 0.42, cy + r * 0.02); ctx.lineTo(cx - r * 0.1, cy + r * 0.34); ctx.lineTo(cx + r * 0.45, cy - r * 0.32); }
+    else if (kind === 'no') { ctx.moveTo(cx - r * 0.34, cy - r * 0.34); ctx.lineTo(cx + r * 0.34, cy + r * 0.34); ctx.moveTo(cx + r * 0.34, cy - r * 0.34); ctx.lineTo(cx - r * 0.34, cy + r * 0.34); }
+    else { ctx.moveTo(cx - r * 0.4, cy); ctx.lineTo(cx + r * 0.4, cy); }
+    ctx.stroke(); ctx.restore();
   }
+  // a dark-glass chip with an accent dot; returns its width
+  // list item (no capsule): accent bar or ✓/✗ mark, then text with a dark halo
+  function chip(ctx, s, x, y, o) {
+    o = o || {};
+    const size = o.size || 24, h = size + 26, cy = y + h / 2;
+    if (o.mark) mark(ctx, o.mark, x + 12, cy, size * 0.5);
+    else { ctx.fillStyle = o.col || C.mute; rrect(ctx, x, cy - size * 0.55, 4, size * 1.1, 2); ctx.fill(); }
+    haloText(ctx, s, x + (o.mark ? 34 : 18), cy + size * 0.36, { size, weight: 500, color: o.tcol || C.ink });
+    font(ctx, 500, size, SANS); return ctx.measureText(s).width + (o.mark ? 34 : 18);
+  }
+  function badge(ctx, n, cx, cy, col, r) {
+    r = r || 20;
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, 7); ctx.fillStyle = col; ctx.fill();
+    text(ctx, String(n), cx, cy + r * 0.38, { size: r * 1.05, weight: 700, color: C.paper, align: 'center' });
+  }
+  function toggle(ctx, x, y, off, col) {
+    ctx.fillStyle = off > 0.5 ? C.grid : col; rrect(ctx, x, y, 84, 42, 21); ctx.fill();
+    dot(ctx, lerp(x + 63, x + 21, off), y + 21, 16, off > 0.5 ? C.mute : C.paper);
+  }
+  // cited statistic: big number, label, source line
+  function statCard(ctx, x, y, w, h, big, label, src, o) {
+    o = o || {};
+    panelBox(ctx, x, y, w, h, { stroke: o.col || C.orange, fill: 'rgba(17,23,33,0.98)' });
+    tag(ctx, o.tag || 'PRIOR WORK', x + 28, y + 42, C.faint);
+    text(ctx, big, x + 28, y + 42 + (o.bigSize || 76), { fam: SERIF, weight: 600, size: o.bigSize || 76, color: o.col || C.orange });
+    let yy = y + 42 + (o.bigSize || 76) + 44;
+    yy += paragraph(ctx, label, x + 28, yy, w - 56, { size: o.lsize || 26, color: C.ink, lh: 34 });
+    paragraph(ctx, src, x + 28, y + h - 26 - (o.srcLines ? (o.srcLines - 1) * 22 : 0), w - 56, { size: 17, color: C.faint, lh: 22 });
+  }
+  const appear = (ctx, a, dy) => { ctx.globalAlpha *= a; ctx.translate(0, (1 - easeOut(a)) * (dy == null ? 14 : dy)); };
 
   // ---- scene list ----
+  // Thesis: a small VLA that already has basic skills meets a new combination of conditions; a teacher
+  // (geometry + predicted consequences) helps it get it right, the correction is learned, and the teacher
+  // is gradually no longer needed. Everything shown is a plan / hypothesis; every number is cited prior work.
   const SCENES = [
     { id: 'title', name: 'Title', dur: 10 },
-    { id: 'task', name: 'Task and hard constraints', dur: 30 },
-    { id: 'guide', name: 'Guidance mechanism', dur: 32 },
-    { id: 'stall', name: 'Why local attraction fails', dur: 36 },
-    { id: 'geo', name: 'Geodesic progress field', dur: 54 },
-    { id: 'teach', name: 'Teacher to structured student', dur: 38 },
-    { id: 'slip', name: 'Same path, different physics', dur: 26 },
-    { id: 'exp', name: 'Experiments and acceptance', dur: 30 },
-    { id: 'retire', name: 'Distillation and retirement', dur: 26 }
+    { id: 'gap', name: 'Skills, not the combination', dur: 58 },
+    { id: 'tools', name: 'Where extra reasoning helps — and what it costs', dur: 106 },
+    { id: 'thesis', name: 'The bet', dur: 36 },
+    { id: 'guide', name: 'Guidance: geometry and consequences', dur: 60 },
+    { id: 'geom', name: 'The geometry part of the teacher', dur: 36 },
+    { id: 'direct', name: 'A direction, not a verdict', dur: 40 },
+    { id: 'slip', name: 'Same path, different physics', dur: 34 },
+    { id: 'intervene', name: 'Change the task, not the weights', dur: 56 },
+    { id: 'teach', name: 'Teacher → energy student', dur: 42 },
+    { id: 'policy', name: 'Policy student: learning to need it less', dur: 72 },
+    { id: 'invest', name: 'Deployment states', dur: 34 },
+    { id: 'levels', name: 'Four levels — and the Level 3 test', dur: 56 },
+    { id: 'notclaims', name: 'What we do not claim', dur: 20 },
+    { id: 'end', name: 'The proposition', dur: 30 },
+    { id: 'appendix', name: 'Appendix: prior numbers and their scope', dur: 22 }
   ];
   let acc = 0; for (const s of SCENES) { s.start = acc; acc += s.dur; }
   const DUR = acc;
 
+  // Beat timings (scene-local seconds) shared by the overlay and the 3D layer.
+  const TL = {
+    gap: { skills: [1.5, 13], chips: [3, 4.5, 7, 10, 12], combo: 16, comboChips: [16.5, 19, 21.5, 24], fail: [30, 33], why: 37, vls: 46, lift: 52 },
+    tools: { vla: [3, 6], cem: [[8, 11], [11, 14], [14, 17]], step1: [17, 19], cem2: [[19, 22], [22, 25]], step2: [25, 27], cards: 28, wam: 35, stat: 42, table: 50, fam: 64, gps: 88, question: 96 },
+    guide: { pipe: 20, geo: 27, cons: 34, sum: 41, upd: 48 },
+    geom: { ghost: [2, 3.5], a1: [3.5, 5], a2: [5, 6.5], a3: [8, 9.5], T: 14, cut: [14.8, 20.5], quiver: [21, 22], grad: [21.5, 22.7], prop: 23, corr: 25, exec: [27, 32] },
+    direct: { keep: 8, lift: 10, ease: 12, bend: [16, 20], eq: 14, dagger: 21 },
+    intervene: { phase: [8, 16, 24], goal: 32, goalCut: [33, 37], diag: 44, agf: 50 },
+    policy: { split: 30, c1: [31.5, 34, 37.5], c2: 44, c2m: [45.5, 48, 51.5], line: 58 },
+    invest: { A: 8, B: 15, C: 22, measure: 28 },
+    levels: { test: 30, rows: 38, limit: 52 },
+    appendix: {}
+  };
+  // shared timing of the denoising loop (2D τ bar and 3D chunk agree)
+  function guideTau(u) { const loopT = 12, uu = u % loopT; return clamp(uu / 8.5, 0, 1); }
+  const SLIP = { t0: 1.5, period: 12, dur: [9.0, 4.5] };
+
   // =====================================================================
-  // SCENE 1 — Title
+  // 01 — Title
   // =====================================================================
-  function sceneTitle(ctx, u, env) {
-    background(ctx);
-    const v = makeView(0, 120, W, FX0, FX1, FZ0, FZ1); // full-width field as motif
-    const f = env.F.L0;
-    const levels = []; for (let k = 1; k <= 22; k++) levels.push(f.tmax * k / 23);
-    const cut = f.tmax * sramp(u, 0.2, 5.5);
-    ctx.save(); ctx.globalAlpha = 0.28;
-    drawContours(ctx, f, v, levels, C.teal, 2.5, cut);
-    ctx.restore();
-    // title block
+  function sceneTitle(ctx, u) {
+    hWash(ctx, 860, 1360, 0.94, false);
     ctx.save();
-    ctx.globalAlpha = ramp(u, 0.8, 2.0);
-    ctx.translate(0, (1 - easeOut(ramp(u, 0.8, 2.0))) * 18);
-    text(ctx, 'Energy-Field Teachers for Small VLAs', 160, 470, { fam: SERIF, weight: 600, size: 84, color: C.ink });
+    const a = ramp(u, 0.8, 2.0);
+    ctx.globalAlpha = a; ctx.translate(0, (1 - easeOut(a)) * 18);
+    text(ctx, 'Energy-Field Teachers', 150, 420, { fam: SERIF, weight: 600, size: 96, color: C.ink });
+    text(ctx, 'for Small VLAs', 150, 526, { fam: SERIF, weight: 600, size: 96, color: C.ink });
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 2.0, 3.2);
-    paragraph(ctx, 'Gradient guidance from a geodesic progress field and a predictive world model — and how the teacher retires.', 160, 545, 1400, { size: 36, color: C.mute, lh: 48 });
+    text(ctx, 'Help a small VLA get it right the first time —', 150, 612, { size: 34, color: C.mute });
+    text(ctx, 'then let it learn to do without the teacher.', 150, 658, { size: 34, color: C.mute });
     ctx.restore();
     ctx.save(); ctx.globalAlpha = ramp(u, 3.2, 4.2);
-    line(ctx, 160, 700, 520, 700, C.orange, 4);
-    spaced(ctx, 'RESEARCH PLAN  ·  CONCEPT / HYPOTHESIS  ·  2026-11-01', 160, 748, { size: 20, color: C.mute, spacing: 2.4 });
-    text(ctx, 'Teacher: geometry + JEPA consequences   ·   Students: π0.5, GR00T N1.x   ·   No experimental results yet', 160, 790, { size: 24, color: C.faint });
+    ctx.fillStyle = C.orange; ctx.fillRect(150, 730, 120, 4);
     ctx.restore();
   }
 
   // =====================================================================
-  // SCENE 2 — Task and the two hard constraints
+  // 02 — Skills, not the combination
   // =====================================================================
-  const VIEW_MAIN = makeView(160, 170, 1600, FX0, FX1, FZ0, FZ1); // 1600 px wide → scale 1333 → height 853... too tall; use a cropped view instead
-  const VIEW_SIDE = makeView(190, 150, 1540, 0.06, 1.18, 0, 0.56);
-
   function arcPath(x0, z0, x1, z1, apexZ, n) {
     const pts = [];
     for (let i = 0; i <= n; i++) {
       const t = i / n, x = lerp(x0, x1, t);
-      const z = lerp(z0, z1, t) + (apexZ - Math.max(z0, z1)) * Math.sin(Math.PI * t) * (1.0);
+      const z = lerp(z0, z1, t) + (apexZ - Math.max(z0, z1)) * Math.sin(Math.PI * t);
       pts.push([x, z]);
     }
     return pts;
   }
-  function sceneTask(ctx, u, env) {
-    background(ctx);
-    const v = VIEW_SIDE;
-    const ia = ramp(u, 0, 1.2);
-    ctx.save(); ctx.globalAlpha = ia;
-    drawTable(ctx, v); drawBarrier(ctx, v, WORLD.barrierH); drawBowl(ctx, v);
-    text(ctx, 'barrier', v.px(0.58), v.py(WORLD.barrierH) - 14, { size: 22, color: C.mute, align: 'center' });
-    text(ctx, 'bowl', v.px(WORLD.bowlX), v.py(WORLD.bowlH) - 16, { size: 22, color: C.mute, align: 'center' });
-    ctx.restore();
-    // gripper motion: straight toward the bowl, stops at contact
-    const xContact = 0.505;
-    const m = sramp(u, 2.0, 6.0);
-    const gx = lerp(WORLD.start.x, xContact, m), gz = WORLD.start.z;
-    // collision flash
-    const flash = u > 6 ? fade(u, 6, 6.15, 7.2, 8.5) : 0;
-    ctx.save(); ctx.globalAlpha = ia; drawGripper(ctx, v, gx, gz, { bananaAng: -0.05 }); ctx.restore();
-    if (flash > 0) {
-      ctx.save(); ctx.globalAlpha = flash;
-      const cx = v.px(WORLD.barrierX0), cy = v.py(gz - 0.01);
-      for (let r = 0; r < 3; r++) { ctx.beginPath(); ctx.arc(cx, cy, 24 + r * 22 + (u - 6) * 20, 0, 7); ctx.strokeStyle = rgba(C.red, 0.9 - r * 0.25); ctx.lineWidth = 5 - r; ctx.stroke(); }
-      text(ctx, 'collision', cx - 30, cy - 70, { size: 24, weight: 600, color: C.red, align: 'right' });
-      ctx.restore();
-    }
-    // the VLA's straight proposal (dashed) while moving
-    if (u > 2 && u < 12) {
-      ctx.save(); ctx.globalAlpha = fade(u, 2, 2.6, 10.5, 12) * 0.8;
-      line(ctx, v.px(WORLD.start.x), v.py(gz), v.px(0.95), v.py(gz), C.blue, 3, [10, 12]);
-      text(ctx, 'VLA proposal: straight to the bowl', v.px(0.3), v.py(gz) - 120, { size: 22, color: C.blue });
-      ctx.restore();
-    }
-    // constraint 1: a teacher box emits a waypoint path, then it is crossed out
-    if (u > 12 && u < 20.5) {
-      const al = fade(u, 12, 12.6, 19.6, 20.5);
-      ctx.save(); ctx.globalAlpha = al;
-      panelBox(ctx, 1380, 190, 360, 120, { fill: C.panel, stroke: C.orange, lw: 3 });
-      text(ctx, 'WAM teacher', 1560, 240, { size: 26, weight: 600, align: 'center', color: C.ink });
-      text(ctx, 'outputs waypoints?', 1560, 278, { size: 22, align: 'center', color: C.mute });
-      const pts = arcPath(xContact, gz, 0.98, 0.14, 0.44, 24).map(p => [v.px(p[0]), v.py(p[1])]);
-      const prog = sramp(u, 12.8, 15.2);
-      drawPartial(ctx, pts, prog, C.orange, 4, { dash: [14, 12] });
-      const nShow = Math.floor(prog * 6 + 1e-6);
-      for (let i = 1; i <= Math.min(nShow, 5); i++) { const p = pts[Math.round(i * 24 / 6)]; dot(ctx, p[0], p[1], 9, C.panel, C.orange); }
-      // link from box to path
-      arrow(ctx, 1380, 250, pts[10][0] + 30, pts[10][1] - 40, { color: C.orange, width: 2.5, head: 10, dash: [6, 8] });
-      const cp = ramp(u, 15.6, 16.6);
-      if (cp > 0) cross(ctx, pts[12][0], pts[12][1] - 20, 70, C.red, cp, 12);
-      if (cp >= 1) text(ctx, 'not allowed: no reference path', pts[12][0], pts[12][1] - 120, { size: 26, weight: 600, color: C.red, align: 'center' });
-      ctx.restore();
-    }
-    // constraint 2: a fan of ranked candidates, then crossed out
-    if (u > 20 && u < 28.5) {
-      const al = fade(u, 20, 20.6, 27.6, 28.5);
-      ctx.save(); ctx.globalAlpha = al;
-      const rnd = mulberry32(7);
-      const prog = sramp(u, 20.6, 23.2);
-      const scores = [];
-      for (let i = 0; i < 12; i++) {
-        const apex = 0.22 + rnd() * 0.32, endx = 0.78 + rnd() * 0.3, endz = 0.08 + rnd() * 0.2;
-        const pts = arcPath(xContact, gz, endx, endz, apex, 24).map(p => [v.px(p[0]), v.py(p[1])]);
-        const ok = apex > 0.36;
-        drawPartial(ctx, pts, prog, ok ? rgba(C.faint, 0.9) : rgba(C.faint, 0.55), 3);
-        if (prog >= 1) { const sc = (ok ? 0.55 + rnd() * 0.4 : rnd() * 0.4).toFixed(2); const e = pts[pts.length - 1]; text(ctx, sc, e[0] + 8, e[1] - 6, { size: 18, color: C.mute }); }
-      }
-      panelBox(ctx, 1380, 190, 360, 120, { fill: C.panel, stroke: C.slate, lw: 3 });
-      text(ctx, 'sample N, score, rank', 1560, 240, { size: 26, weight: 600, align: 'center', color: C.ink });
-      text(ctx, 'CEM / best-of-N', 1560, 278, { size: 22, align: 'center', color: C.mute });
-      const cp = ramp(u, 24.2, 25.2);
-      if (cp > 0) cross(ctx, v.px(0.78), v.py(0.36), 80, C.red, cp, 12);
-      if (cp >= 1) text(ctx, 'not allowed as the main method', v.px(0.78), v.py(0.36) - 130, { size: 26, weight: 600, color: C.red, align: 'center' });
-      ctx.restore();
-    }
-    // what remains: one gradient arrow on the current chunk
-    if (u > 28) {
-      const al = ramp(u, 28, 28.8);
-      ctx.save(); ctx.globalAlpha = al;
-      const px = v.px(gx), py = v.py(gz);
-      arrow(ctx, px - 20, py - 40, px + 60 * al, py - 40 - 150 * al, { color: C.orange, width: 8, head: 26 });
-      text(ctx, '−∇E', px + 80, py - 200, { size: 34, fam: MATH, italic: true, color: C.orange });
-      ctx.restore();
-    }
-    captions(ctx, u, [
-      [0, 6.2, 'Task: carry the grasped banana over the barrier and into the bowl.'],
-      [6.2, 12.2, 'A small VLA proposes the obvious thing: move straight toward the bowl. The banana hits the barrier.'],
-      [12.2, 20.2, 'Hard constraint 1 — the teacher never outputs a reference path, waypoints or sub-goal images.'],
-      [20.2, 28.2, 'Hard constraint 2 — no sampling and ranking of many candidate trajectories. CEM and best-of-N stay as equal-compute baselines only.'],
-      [28.2, 30.2, 'What remains: a differentiable field whose gradient corrects the VLA’s own action chunk.']
-    ]);
-  }
-
-  // =====================================================================
-  // SCENE 3 — Guidance mechanism
-  // =====================================================================
-  function sceneGuide(ctx, u, env) {
-    background(ctx);
-    const v = makeView(110, 170, 860, 0.18, 1.18, 0, 0.52);
-    panelBox(ctx, 90, 150, 900, 600, { fill: C.panel });
-    text(ctx, 'Action chunk during denoising (side view)', 110, 190, { size: 22, weight: 500, color: C.mute });
-    ctx.save(); ctx.beginPath(); ctx.rect(92, 200, 896, 548); ctx.clip();
-    drawTable(ctx, v); drawBarrier(ctx, v, WORLD.barrierH); drawBowl(ctx, v);
-    // chunk: straight proposal → guided arc, H = 10 points
-    const Hn = 10, rnd = mulberry32(3);
-    const noise = []; for (let i = 0; i < Hn; i++) noise.push([(rnd() - 0.5) * 0.22, (rnd() - 0.5) * 0.22]);
-    const loopT = 12; // seconds per denoising pass
-    const uu = u % loopT; const pass = Math.floor(u / loopT);
-    const tau = clamp(uu / 8.5, 0, 1);
-    const inWin = tau >= 0.3 && tau <= 0.8;
-    const g = sramp(tau, 0.3, 0.8); // how much the clean target has bent upward
-    const straight = [], arc = arcPath(0.33, 0.17, 0.98, 0.13, 0.46, Hn - 1);
-    for (let i = 0; i < Hn; i++) straight.push([lerp(0.33, 0.98, i / (Hn - 1)), lerp(0.17, 0.13, i / (Hn - 1))]);
-    const pts = [], clean = [];
-    for (let i = 0; i < Hn; i++) {
-      const cx = lerp(straight[i][0], arc[i][0], g), cz = lerp(straight[i][1], arc[i][1], g);
-      clean.push([cx, cz]);
-      pts.push([lerp(noise[i][0] + 0.65, cx, tau), lerp(noise[i][1] + 0.28, cz, tau)]);
-    }
-    const P = pts.map(p => [v.px(p[0]), v.py(p[1])]);
-    polyline(ctx, P, rgba(C.blue, 0.35 + 0.65 * tau), 4);
-    P.forEach((p, i) => dot(ctx, p[0], p[1], 7, C.blue));
-    // clean estimate ghost
-    if (tau > 0.05 && tau < 0.98) { const Q = clean.map(p => [v.px(p[0]), v.py(p[1])]); polyline(ctx, Q, rgba(C.blueDeep, 0.35), 2.5, { dash: [8, 8] }); text(ctx, 'clean estimate Â', Q[6][0] + 10, Q[6][1] - 24, { size: 20, color: C.blueDeep, alpha: 0.9 }); }
-    // guidance arrows during the window
-    if (inWin) {
-      const strength = Math.sin((tau - 0.3) / 0.5 * Math.PI);
-      for (let i = 2; i <= 7; i++) {
-        const p = P[i], len = 70 * strength * (1 - Math.abs(i - 4.5) / 4);
-        arrow(ctx, p[0], p[1], p[0] + len * 0.25, p[1] - len, { color: C.orange, width: 4, head: 14 });
-      }
-      text(ctx, '−λ · ∇E', P[4][0] - 40, P[4][1] - 110, { size: 28, fam: MATH, italic: true, color: C.orange });
-    }
-    ctx.restore();
-    // tau bar
-    const bx = 150, by = 715, bw = 780;
-    ctx.fillStyle = C.grid; rrect(ctx, bx, by - 8, bw, 16, 8); ctx.fill();
-    ctx.fillStyle = rgba(C.orange, 0.35); ctx.fillRect(bx + bw * 0.3, by - 8, bw * 0.5, 16);
-    ctx.fillStyle = C.blue; rrect(ctx, bx, by - 8, bw * tau, 16, 8); ctx.fill();
-    dot(ctx, bx + bw * tau, by, 13, C.panel, C.blue);
-    text(ctx, 'τ = 0 (noise)', bx, by + 40, { size: 20, color: C.mute });
-    text(ctx, 'τ = 1 (actions)', bx + bw, by + 40, { size: 20, color: C.mute, align: 'right' });
-    text(ctx, 'guided window τ ∈ [0.3, 0.8]', bx + bw * 0.55, by - 22, { size: 20, color: C.orangeDeep, align: 'center' });
-    text(ctx, `τ = ${tau.toFixed(2)}`, bx + bw * 0.55, by + 40, { size: 20, color: C.ink, align: 'center' });
-
-    // pipeline on the right
-    const boxes = [
-      ['VLA velocity field', 'v_θ(A^τ, o, ℓ)   —   π0.5: 10 Euler steps · GR00T: 4'],
-      ['Clean estimate', 'Â = A^τ + (1 − τ) · v_θ'],
-      ['Kinematics', 'K(Â): end-effector + attached object (swept spheres)'],
-      ['Energy', 'E(K(Â); G, p, b) — geometry, progress, consequences'],
-      ['Gradient', '∇_A E → normalize · clip · trust region · low-pass'],
-      ['Guided velocity', 'v_θ − λ · q · ∇̄E   (MPGD: no backprop through v_θ)']
-    ];
-    const bx0 = 1030, by0 = 160, bw0 = 800, bh0 = 86, gap = 14;
-    const active = tau <= 0.02 ? 0 : !inWin ? (tau > 0.8 ? 5 : 0) : Math.min(5, 1 + Math.floor(((tau - 0.3) / 0.5) * 5));
-    boxes.forEach((b, i) => {
-      const y = by0 + i * (bh0 + gap), al = ramp(u, 0.6 + i * 0.35, 1.2 + i * 0.35);
-      ctx.save(); ctx.globalAlpha = al;
-      const hot = i === active;
-      panelBox(ctx, bx0, y, bw0, bh0, { fill: hot ? rgba(C.orange, 0.10) : C.panel, stroke: hot ? C.orange : C.grid, lw: hot ? 3 : 2 });
-      text(ctx, b[0], bx0 + 22, y + 36, { size: 24, weight: 600, color: hot ? C.orangeDeep : C.ink });
-      text(ctx, b[1], bx0 + 22, y + 68, { size: 21, fam: MATH, italic: true, color: C.mute });
-      if (i < boxes.length - 1) arrow(ctx, bx0 + bw0 / 2, y + bh0 + 1, bx0 + bw0 / 2, y + bh0 + gap - 1, { color: C.faint, width: 2, head: 8 });
+  function sceneGap(ctx, u) {
+    const T = TL.gap;
+    hWash(ctx, 1020, 1160, 0.9, true);
+    subhead(ctx, 'Skills it already has', 80, 140, { color: C.blue, alpha: 1 - ramp(u, T.combo - 0.6, T.combo) });
+    subhead(ctx, 'A combination it has not seen', 80, 140, { color: C.red, alpha: ramp(u, T.combo, T.combo + 0.6) });
+    // skills column
+    const skills = ['grasp', 'lift', 'move sideways', 'slow down', 'place'];
+    const sa = 1 - ramp(u, T.combo - 0.6, T.combo);
+    if (sa > 0) skills.forEach((s, i) => {
+      ctx.save(); ctx.globalAlpha = sa; appear(ctx, ramp(u, T.chips[i], T.chips[i] + 0.5));
+      chip(ctx, s, 1240, 200 + i * 80, { col: C.blue, size: 30 });
       ctx.restore();
     });
-    text(ctx, 'Injection points: openpi sample_actions loop (t runs 1 → 0) · GR00T action-head Euler loop (τ runs 0 → 1)', 1030, 790, { size: 20, color: C.mute });
+    // new-combination column
+    const combo = ['bowl behind a barrier', 'low ceiling', 'grip near one end', 'no fast swing'];
+    const ca = ramp(u, T.combo, T.combo + 0.6) * (1 - ramp(u, T.why - 0.6, T.why));
+    if (ca > 0) combo.forEach((s, i) => {
+      ctx.save(); ctx.globalAlpha = ca; appear(ctx, ramp(u, T.comboChips[i], T.comboChips[i] + 0.5));
+      chip(ctx, s, 1240, 200 + i * 80, { col: C.red, size: 30 });
+      ctx.restore();
+    });
+    // what is missing
+    if (u > T.why) {
+      ctx.save(); appear(ctx, ramp(u, T.why, T.why + 0.8));
+      panelBox(ctx, 1200, 190, 640, 330, { stroke: C.orange });
+      tag(ctx, 'WHAT IS MISSING', 1232, 236, C.orangeDeep);
+      ['which skill to use,', 'how much of it,', 'and what it causes next.'].forEach((s, i) =>
+        text(ctx, s, 1232, 312 + i * 64, { fam: SERIF, weight: 600, size: 42, color: C.ink }));
+      ctx.restore();
+    }
+    if (u > T.vls) {
+      ctx.save(); appear(ctx, ramp(u, T.vls, T.vls + 0.8));
+      panelBox(ctx, 1200, 550, 640, 170, {});
+      tag(ctx, 'SIMILAR DIAGNOSIS', 1232, 594, C.faint);
+      text(ctx, 'Actions stay bound to training layouts.', 1232, 644, { size: 26, color: C.ink });
+      text(ctx, 'VLS — Liu et al., arXiv 2602.03973', 1232, 690, { size: 18, color: C.faint });
+      ctx.restore();
+    }
     captions(ctx, u, [
-      [0, 6.5, 'A flow-matching VLA denoises an action chunk from noise (τ = 0) to actions (τ = 1); π0.5 uses 10 Euler steps, GR00T N1.6 uses 4.'],
-      [6.5, 13.5, 'At each guided step: estimate the clean chunk, map it through kinematics, evaluate the energy, and push its gradient back into the velocity field.'],
-      [13.5, 20.5, 'Guided only for τ ∈ [0.3, 0.8]; gradient normalized, a trust region per step, low-pass over the chunk. The MPGD path by default; backprop through v_θ is an ablation.'],
-      [20.5, 26.5, 'The same energy serves both students: OmniGuide-style Cartesian injection through each embodiment’s kinematics.'],
-      [26.5, 32.2, 'One guided step costs one energy forward and backward. Every comparison also reports equal-compute best-of-N.']
+      [0, 8, 'A small VLA that already knows the basics: grasp, lift, move, place.'],
+      [8, 16, 'In layouts like its training data, that is enough.'],
+      [16, 23, 'Now a new combination: a barrier, a low ceiling, a grip near one end.'],
+      [23, 30, 'Do not touch the barrier. Do not fling the banana by moving too fast.'],
+      [30, 37, 'Every motion is familiar. The combination is not — and it fails.'],
+      [37, 46, 'What is missing: which skill, how much, and what it causes next.'],
+      [46, 52, 'Our scope: re-using and adapting existing skills, not inventing new ones.'],
+      [52, 58.2, 'From here on: barrier only — the ceiling is removed to show the mechanism.']
     ]);
   }
 
   // =====================================================================
-  // SCENE 4 — Why local attraction + repulsion stalls
+  // 03 — Where additional reasoning helps, and what it costs (split: direct policy | sampling planner)
   // =====================================================================
-  const VIEW_FIELD = makeView(130, 140, 1140, FX0, FX1, FZ0, FZ1); // 1140 → scale 950, height 608
-  function sceneStall(ctx, u, env) {
-    background(ctx);
-    const v = VIEW_FIELD, F = env.F, f = F.L0;
-    panelBox(ctx, v.x0 - 10, v.y0 - 10, v.w + 20, v.h + 20, { fill: C.panel });
-    const ia = ramp(u, 0, 2.5);
-    ctx.save(); ctx.beginPath(); ctx.rect(v.x0, v.y0, v.w, v.h); ctx.clip();
-    drawField(ctx, env, f, v, 'E', null, ia);
-    drawBarrier(ctx, v, WORLD.barrierH); drawBowl(ctx, v);
-    text(ctx, 'E_local = attraction to bowl + repulsion from barrier', v.x0 + 20, v.y0 + 36, { size: 22, color: C.mute });
-    // test point and force arrows
-    const P = F.pStar, px = v.px(P.x), py = v.py(P.z);
-    const parts = F.Eloc_parts(P.x, P.z);
-    const sc = 11; // px per unit gradient
-    const a1 = sramp(u, 3.2, 5.0), a2 = sramp(u, 5.0, 6.8), a3 = sramp(u, 6.8, 8.2);
-    if (u > 3) {
-      drawGripper(ctx, v, P.x, P.z, { armAlpha: 0.5 });
-      dot(ctx, px, py, 9, C.ink);
-      const ax = -parts.attract[0] * sc, ay = parts.attract[1] * sc; // force = −grad; canvas y down
-      const rx = -parts.repel[0] * sc, ry = parts.repel[1] * sc;
-      if (a1 > 0) { arrow(ctx, px, py, px + ax * a1, py + ay * a1, { color: C.blue, width: 6, head: 18 }); text(ctx, 'attraction', px + ax * a1 + 14, py + ay * a1 + 8, { size: 22, weight: 600, color: C.blue }); }
-      if (a2 > 0) { arrow(ctx, px, py, px + rx * a2, py + ry * a2, { color: C.red, width: 6, head: 18 }); text(ctx, 'repulsion', px + rx * a2 - 14, py + ry * a2 + 8, { size: 22, weight: 600, color: C.red, align: 'right' }); }
-      if (a3 > 0) {
-        const nx = (ax + rx), ny = (ay + ry);
-        ctx.save(); ctx.globalAlpha = a3;
-        arrow(ctx, px, py, px + nx * 3, py + ny * 3, { color: C.ink, width: 7, head: 20 });
-        text(ctx, 'net: no upward component', px + 30, py + 90, { size: 24, weight: 600, color: C.ink });
+  function sceneTools(ctx, u) {
+    const T = TL.tools;
+    const rowsYN = (x, y, items, t0) => items.forEach(([k, s], i) => {
+      ctx.save(); ctx.globalAlpha *= ramp(u, t0 + i * 1.2, t0 + i * 1.2 + 0.5);
+      mark(ctx, k, x + 16, y + i * 50 - 9, 14); text(ctx, s, x + 44, y + i * 50, { size: 24, color: C.ink });
+      ctx.restore();
+    });
+    if (u < T.table) {
+      // ---- A: the same new combination, two ways to act (3D split behind) ----
+      const dim = 1 - 0.85 * ramp(u, T.stat, T.stat + 0.6);
+      topWash(ctx, 300, 0.94);
+      heading(ctx, 'Where extra reasoning helps — and what it costs', 100, 150, 42, ramp(u, 0, 0.8));
+      ctx.save(); ctx.globalAlpha = ramp(u, 1, 2); spaced(ctx, 'ILLUSTRATIVE FAILURE · COMBINED CHANGES', 1150, 150, { size: 16, weight: 600, color: C.orangeDeep, spacing: 2.2 }); ctx.restore();
+      ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(959, 190, 2, 890); ctx.restore();
+      [[0, 'Direct-policy baseline', 'e.g. π0.5 · GR00T N1.6 — direct action-chunk generation, no external rollout search', C.blue],
+       [960, 'A sampling-based world-model planner', 'e.g. V-JEPA 2-AC with CEM — not every world action model works this way', C.violet]].forEach(([x, title, sub, col]) => {
+        ctx.save(); ctx.globalAlpha = ramp(u, 0.6, 1.4);
+        ctx.fillStyle = col; rrect(ctx, x + 60, 206, 4, 54, 2); ctx.fill();
+        haloText(ctx, title, x + 80, 232, { size: 30, weight: 600, color: col });
+        haloText(ctx, sub, x + 80, 262, { size: 18, color: C.mute });
+        ctx.restore();
+      });
+      if (u > T.cards) {
+        ctx.save(); ctx.globalAlpha = dim; appear(ctx, ramp(u, T.cards, T.cards + 0.6));
+        panelBox(ctx, 60, 640, 840, 230, { stroke: C.blue });
+        text(ctx, '63 ms', 90, 698, { fam: SERIF, weight: 600, size: 48, color: C.blue });
+        text(ctx, 'per 50-action chunk, π0.5 (reported)', 250, 696, { size: 18, color: C.mute });
+        rowsYN(90, 760, [['yes', 'direct action-chunk generation'], ['no', 'no separate action–outcome evaluation loop']], T.cards + 0.8);
+        text(ctx, 'Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', 90, 852, { size: 16, color: C.faint });
         ctx.restore();
       }
-    }
-    ctx.restore();
-    // inset: E along z at x = P.x
-    if (u > 10) {
-      const al = ramp(u, 10, 11);
-      const ix = 1320, iy = 150, iw = 480, ih = 360;
-      ctx.save(); ctx.globalAlpha = al;
-      panelBox(ctx, ix, iy, iw, ih, { fill: C.panel });
-      text(ctx, 'E along the vertical at the stall point', ix + 20, iy + 36, { size: 22, color: C.mute });
-      const zs = [], Es = []; let emin = 1e9, emax = -1e9;
-      for (let k = 0; k <= 60; k++) { const z = 0.02 + k / 60 * 0.5; const e = F.Eloc_fn(P.x, z); zs.push(z); Es.push(e); emin = Math.min(emin, e); emax = Math.max(emax, e); }
-      const gx0 = ix + 70, gy0 = iy + 70, gw = iw - 100, gh = ih - 130;
-      line(ctx, gx0, gy0 + gh, gx0 + gw, gy0 + gh, C.line, 2); line(ctx, gx0, gy0, gx0, gy0 + gh, C.line, 2);
-      const pts = zs.map((z, k) => [gx0 + (z - 0.02) / 0.5 * gw, gy0 + gh - (Es[k] - emin) / (emax - emin) * gh]);
-      drawPartial(ctx, pts, sramp(u, 10.5, 13), C.orange, 4);
-      // mark barrier top
-      const bxp = gx0 + (WORLD.barrierH - 0.02) / 0.5 * gw;
-      line(ctx, bxp, gy0, bxp, gy0 + gh, C.slate, 2, [6, 6]);
-      text(ctx, 'barrier top', bxp + 8, gy0 + 18, { size: 18, color: C.slate });
-      text(ctx, 'z (height)', gx0 + gw, gy0 + gh + 30, { size: 18, color: C.mute, align: 'right' });
-      text(ctx, 'E', gx0 - 30, gy0 + 10, { size: 20, fam: MATH, italic: true, color: C.mute });
-      if (u > 13) { ctx.globalAlpha = al * ramp(u, 13, 13.8); text(ctx, '∂E/∂z > 0 everywhere here: the field says “go down”', ix + 20, iy + ih - 24, { size: 21, weight: 600, color: C.orangeDeep }); }
-      ctx.restore();
-    }
-    // facts card
-    if (u > 18) {
-      const al = fade(u, 18, 18.8, 35.3, 36);
-      ctx.save(); ctx.globalAlpha = al;
-      panelBox(ctx, 1320, 540, 480, 300, { fill: C.band, stroke: C.grid });
-      text(ctx, 'Reported in prior work', 1340, 578, { size: 20, weight: 500, color: C.mute });
-      paragraph(ctx, 'The Planning Limits of Latent World Models: with perfect predictions, distance-to-goal scoring drops from 92% to 41% success as the goal moves from 5 to 20 steps away.', 1340, 616, 440, { size: 21, color: C.ink, lh: 29 });
-      paragraph(ctx, 'LatentCBF: a least-restrictive safety filter stalled in 62% of hardware trials — safe, but stuck.', 1340, 748, 440, { size: 21, color: C.ink, lh: 29 });
-      ctx.restore();
-    }
-    captions(ctx, u, [
-      [0, 3.3, 'First attempt: attraction to the bowl plus repulsion from the barrier — a classic potential field, built from the same SDF geometry.'],
-      [3.3, 10.3, 'In front of the barrier the two forces cancel. The net gradient has no upward component; it even points toward the bowl’s height, i.e. down.'],
-      [10.3, 18.3, 'Along the vertical the energy keeps rising. A gradient method stays pinned in front of the barrier.'],
-      [18.3, 27.3, 'Distance-to-goal scores assume every step gets closer. A detour first moves away — and more accurate prediction does not repair the score.'],
-      [27.3, 36.2, 'Knowing where not to go is not knowing how to get around. Collision avoidance alone yields “safe but stuck”.']
-    ]);
-  }
-
-  // =====================================================================
-  // SCENE 5 — Geodesic progress field
-  // =====================================================================
-  function drawSmallField(ctx, env, field, x, y, w, label, u, t0, pStart, isTop) {
-    const v = makeView(x, y, w, FX0, FX1, FZ0, FZ1);
-    const al = ramp(u, t0, t0 + 0.8);
-    ctx.save(); ctx.globalAlpha = al;
-    panelBox(ctx, x - 8, y - 8, w + 16, v.h + 16, { fill: C.panel });
-    ctx.save(); ctx.beginPath(); ctx.rect(x, y, w, v.h); ctx.clip();
-    const cut = field.tmax * sramp(u, t0 + 0.2, t0 + 3.5);
-    drawField(ctx, env, field, v, 'T', cut, 1);
-    const levels = []; for (let k = 1; k <= 14; k++) levels.push(field.tmax * k / 15);
-    drawContours(ctx, field, v, levels, rgba(C.tealDeep, 0.55), 1.5, cut);
-    drawQuiver(ctx, field, v, 12, 11, C.tealDeep, 0.6 * ramp(u, t0 + 3.2, t0 + 4), cut);
-    if (!isTop) { drawBarrier(ctx, v, field === env.F.L3 ? 0.42 : (field === env.F.L1 ? 0 : WORLD.barrierH)); drawBowl(ctx, v); }
-    else {
-      // top view drawing: wall and bowl circle
-      ctx.fillStyle = C.slate; ctx.fillRect(v.px(WORLD.barrierX0), v.py(0.50), (WORLD.barrierX1 - WORLD.barrierX0) * v.scale, 0.50 * v.scale);
-      ctx.beginPath(); ctx.arc(v.px(1.0), v.py(0.32), WORLD.bowlR * v.scale, 0, 7); ctx.fillStyle = C.bowl; ctx.fill(); ctx.strokeStyle = C.bowlDk; ctx.lineWidth = 2; ctx.stroke();
-      text(ctx, 'opening', v.px(0.58), v.py(0.56), { size: 16, color: C.slateDk, align: 'center' });
-    }
-    // descent arrow at the probe
-    const gq = ramp(u, t0 + 3.6, t0 + 4.4);
-    if (gq > 0) {
-      const g = field.gradAt(pStart[0], pStart[1]), L = Math.hypot(g[0], g[1]) || 1;
-      const px = v.px(pStart[0]), py = v.py(pStart[1]);
-      dot(ctx, px, py, 6, C.ink);
-      arrow(ctx, px, py, px - g[0] / L * 70 * gq, py + g[1] / L * 70 * gq, { color: C.orange, width: 5, head: 16 });
-    }
-    ctx.restore();
-    text(ctx, label, x, y + v.h + 38, { size: 21, weight: 500, color: C.ink });
-    ctx.restore();
-    return v.h;
-  }
-  function sceneGeo(ctx, u, env) {
-    background(ctx);
-    const F = env.F, f = F.L0, P = F.pStar;
-    if (u < 34) {
-      const v = VIEW_FIELD;
-      const al = u < 16 ? 1 : fade(u, 0, 0.1, 15.4, 16.2);
-      if (al > 0) {
-        ctx.save(); ctx.globalAlpha = al;
-        panelBox(ctx, v.x0 - 10, v.y0 - 10, v.w + 20, v.h + 20, { fill: C.panel });
-        ctx.save(); ctx.beginPath(); ctx.rect(v.x0, v.y0, v.w, v.h); ctx.clip();
-        const cut = f.tmax * sramp(u, 0.8, 6.5);
-        drawField(ctx, env, f, v, 'T', cut, 1);
-        const levels = []; for (let k = 1; k <= 22; k++) levels.push(f.tmax * k / 23);
-        drawContours(ctx, f, v, levels, rgba(C.tealDeep, 0.55), 1.8, cut);
-        drawQuiver(ctx, f, v, 10, 13, C.tealDeep, 0.65 * ramp(u, 8, 9), cut);
-        drawBarrier(ctx, v, WORLD.barrierH); drawBowl(ctx, v);
-        text(ctx, 'T(x): shortest time to the goal set, speed S falls toward obstacles', v.x0 + 20, v.y0 + 36, { size: 22, color: C.mute });
-        // probe and its descent direction
-        if (u > 8.5) {
-          const gq = sramp(u, 8.5, 9.6);
-          drawGripper(ctx, v, P.x, P.z, { armAlpha: 0.5 });
-          const g = f.gradAt(P.x, P.z), L = Math.hypot(g[0], g[1]) || 1;
-          const px = v.px(P.x), py = v.py(P.z);
-          dot(ctx, px, py, 9, C.ink);
-          arrow(ctx, px, py, px - g[0] / L * 150 * gq, py + g[1] / L * 150 * gq, { color: C.orange, width: 8, head: 26 });
-          text(ctx, '−∇T: up and over', px - 10, py - 190, { size: 26, weight: 600, color: C.orangeDeep });
-        }
-        ctx.restore();
-        // side card: equation
-        panelBox(ctx, 1320, 140, 480, 220, { fill: C.band, stroke: C.grid });
-        text(ctx, 'S(x) ‖∇T(x)‖ = 1', 1560, 205, { size: 40, fam: MATH, italic: true, align: 'center', color: C.ink });
-        text(ctx, 'T = 0 on the goal set;  S = clip(SDF_inflated / d_max, s_min, 1)', 1560, 252, { size: 20, align: 'center', color: C.mute });
-        text(ctx, 'solved numerically (fast marching / fast sweeping) once per stage', 1560, 288, { size: 20, align: 'center', color: C.mute });
-        text(ctx, '−∇T = d̂ / S  (direction d̂, magnitude 1/S)', 1560, 330, { size: 21, fam: MATH, italic: true, align: 'center', color: C.tealDeep });
-        if (u > 8.5) {
-          ctx.save(); ctx.globalAlpha = ramp(u, 8.5, 9.5);
-          panelBox(ctx, 1320, 390, 480, 300, { fill: C.panel, stroke: C.grid });
-          bullets(ctx, [
-            'Continuous value function: no local minimum outside the goal set',
-            'Computed on the grasped object’s reference point with inflated obstacles',
-            'Recomputed only when the layout or the grasp changes'
-          ], 1340, 440, 440, u, 8.8, 0.9, { size: 21, lh: 29, dotColor: C.teal });
-          ctx.restore();
-        }
+      if (u > T.wam) {
+        ctx.save(); ctx.globalAlpha = dim; appear(ctx, ramp(u, T.wam, T.wam + 0.6));
+        panelBox(ctx, 1020, 640, 840, 230, { stroke: C.violet });
+        text(ctx, '16 s / action', 1050, 698, { fam: SERIF, weight: 600, size: 44, color: C.violet });
+        text(ctx, '800 samples · 10 iterations · horizon 1 · one RTX 4090', 1340, 696, { size: 18, color: C.mute });
+        rowsYN(1050, 760, [['yes', 'evaluates imagined outcomes'], ['no', 'pays for search at every step']], T.wam + 0.8);
+        text(ctx, 'V-JEPA 2, arXiv 2506.09985, Tab. 3', 1050, 852, { size: 16, color: C.faint });
         ctx.restore();
       }
-      // interventions: three small fields
-      if (u >= 15.6) {
-        const w = 540, xs = [100, 690, 1280], y = 210;
-        const probes = [[P.x, P.z], [0.30, 0.32], [P.x, P.z]];
-        const fields = [F.L1, F.L2, F.L3];
-        const labels = ['Barrier removed → straight pull, no extra lift', 'Top closed (top view) → around the side opening', 'Taller barrier → more clearance, same stages'];
-        const starts = [16.2, 22.2, 28.2];
-        fields.forEach((fl, i) => drawSmallField(ctx, env, fl, xs[i], y, w, labels[i], u, starts[i], probes[i], i === 1));
-        ctx.save(); ctx.globalAlpha = ramp(u, 16, 17);
-        heading(ctx, 'Change the layout; the field changes with it', 100, 170, 36);
+      if (u > T.stat) {
+        ctx.save(); appear(ctx, ramp(u, T.stat, T.stat + 0.7));
+        statCard(ctx, 410, 330, 1100, 330, '92% → 41%', 'success with a perfect predictor and a fixed 5-step rollout, as the goal moves from 5 to 20 steps away',
+          'The Planning Limits of Latent World Models — Alrasheed, Azam, Akhtar, arXiv 2609.39235', { col: C.violet, bigSize: 88 });
+        ctx.restore();
+      }
+    } else if (u < T.fam) {
+      // ---- B: world action models are not one design ----
+      wash(ctx, 0.96);
+      heading(ctx, 'World action models are not one design', 100, 170, 48, ramp(u, T.table, T.table + 0.8));
+      const kinds = [
+        ['Imagine, score, then act', 'samples action sequences and scores their predicted outcomes', 'V-JEPA 2-AC with CEM — arXiv 2506.09985'],
+        ['Predict actions and futures together', 'generates actions directly, with future states and values; can also plan', 'Cosmos Policy — Kim et al., arXiv 2601.16163'],
+        ['Learn from video, act directly', 'video co-training, then no imagination at test time', 'Fast-WAM — Yuan et al., arXiv 2603.16666']
+      ];
+      kinds.forEach(([t, s, src], i) => {
+        const y = 300 + i * 150, a = ramp(u, T.table + 1 + i * 2.6, T.table + 1.7 + i * 2.6);
+        ctx.save(); appear(ctx, a, 10);
+        ctx.fillStyle = C.violet; rrect(ctx, 160, y - 34, 5, 108, 2); ctx.fill();
+        text(ctx, t, 192, y, { size: 34, weight: 600, color: C.ink });
+        text(ctx, s, 192, y + 42, { size: 24, color: C.mute });
+        text(ctx, src, 192, y + 74, { size: 17, color: C.faint });
+        ctx.restore();
+      });
+      ctx.save(); appear(ctx, ramp(u, T.table + 9, T.table + 9.8));
+      text(ctx, 'Latency also varies: the WAMs evaluated in one benchmark were 4.8× to 83× slower per inference than π0.5.', 160, 790, { size: 22, color: C.ink });
+      text(ctx, 'Model- and configuration-dependent — Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', 160, 824, { size: 17, color: C.faint });
+      ctx.restore();
+    } else if (u < T.question) {
+      // ---- C: other tools already solve part of it; GPS is not new ----
+      wash(ctx, 0.96);
+      heading(ctx, 'Other tools already solve part of it', 100, 170, 48, ramp(u, T.fam, T.fam + 0.8));
+      const gpsDim = 1 - 0.6 * ramp(u, T.gps, T.gps + 0.6);
+      ctx.save(); ctx.globalAlpha = ramp(u, T.fam + 0.3, T.fam + 1) * gpsDim;
+      tag(ctx, 'ALREADY GOOD AT', 640, 252, C.faint); tag(ctx, 'WHAT WE WANT TO ADD', 1180, 252, C.orangeDeep);
+      ctx.restore();
+      const rows = [
+        ['Motion planning', 'cuRobo, arXiv 2310.17274', 'feasible motion for given geometry', 'language, vision, learned consequences'],
+        ['MPC / model-based RL', 'TD-MPC2, arXiv 2310.16828', 'optimizing on predicted outcomes', 'the VLA’s skill prior; less re-solving'],
+        ['Fine-tuning the VLA', 'π0.5, arXiv 2504.16054', 'writing data into the policy', 'targeted corrections, faster adaptation'],
+        ['Inference-time guidance', 'OmniGuide 2603.10052 · DynaGuide', 'better behaviour right now', 'cheap, composable, kept after switch-off'],
+        ['Amortized guidance', 'AGF, arXiv 2609.34944', 'a light net replaces the critic', 'structure: objects, contacts, physics']
+      ];
+      rows.forEach(([m, src, good, add], i) => {
+        const y = 278 + i * 104, a = ramp(u, T.fam + 0.8 + i * 3.2, T.fam + 1.4 + i * 3.2);
+        ctx.save(); ctx.globalAlpha = gpsDim; appear(ctx, a, 10);
+        panelBox(ctx, 100, y, 1720, 90, { r: 12 });
+        text(ctx, m, 128, y + 42, { size: 26, weight: 600, color: C.ink });
+        text(ctx, src, 128, y + 72, { size: 17, color: C.faint });
+        text(ctx, good, 640, y + 54, { size: 24, color: C.mute });
+        text(ctx, '+ ' + add, 1180, y + 54, { size: 24, weight: 500, color: C.orangeDeep });
+        ctx.restore();
+      });
+      if (u > T.gps) {
+        ctx.save(); appear(ctx, ramp(u, T.gps, T.gps + 0.6));
+        panelBox(ctx, 100, 812, 1720, 74, { stroke: C.orange, hot: true });
+        text(ctx, 'Not new: an optimizer that guides a policy which then acts alone — Guided Policy Search (Levine & Koltun, ICML 2013).', 128, 858, { size: 23, color: C.ink });
         ctx.restore();
       }
     } else {
-      // caveats and stage structure
-      const al = ramp(u, 34, 35);
-      ctx.save(); ctx.globalAlpha = al;
-      heading(ctx, 'What T does and does not settle', 100, 200, 40);
-      const cards = [
-        ['A value field, not a path', 'T scores any candidate state; it prescribes no waypoints. Following −∇T greedily is one option, not the interface.'],
-        ['Progress, not just direction', 'E_adv = [T(x_H) − T(x₀) + δ]₊² — staying still is not free. δ = 0 while grasping or releasing; positive during transport.'],
-        ['Still to be tested', 'Numerical T_h vs. the continuous T; the map J_Kᵀ ∇T into action space; composition with collision and consequence terms — each can stall.']
-      ];
-      cards.forEach((c, i) => {
-        const a2 = ramp(u, 34.4 + i * 1.2, 35.2 + i * 1.2);
-        ctx.save(); ctx.globalAlpha = a2; ctx.translate(0, (1 - easeOut(a2)) * 16);
-        const x = 100 + i * 580, y = 250, w = 540, h = 300;
-        panelBox(ctx, x, y, w, h, { fill: C.panel, stroke: i === 1 ? C.orange : C.grid, lw: i === 1 ? 3 : 2 });
-        text(ctx, c[0], x + 26, y + 50, { size: 26, weight: 600, color: C.ink });
-        paragraph(ctx, c[1], x + 26, y + 100, w - 52, { size: 22, color: C.mute, lh: 31, fam: i === 1 ? MATH : SANS, italic: i === 1 });
+      // ---- D: the question ----
+      wash(ctx, 0.96);
+      ctx.save(); appear(ctx, ramp(u, T.question + 0.3, T.question + 1.1));
+      tag(ctx, 'THE QUESTION', 160, 330, C.orangeDeep, { size: 18 });
+      paragraph(ctx, 'When a new constraint needs extra computation, can that computation become help we no longer need next time?', 160, 420, 1560, { fam: SERIF, weight: 600, size: 52, color: C.ink, lh: 70 });
+      ctx.restore();
+    }
+    captions(ctx, u, [
+      [0, 7, 'Two ways to act: a direct policy, and a sampling-based world-model planner.'],
+      [7, 14, 'Illustrative failure: the direct policy repeats its habit into the barrier.'],
+      [14, 21, 'The planner imagines outcomes, scores them, and takes one step.'],
+      [21, 28, 'A short rollout scored by endpoint distance can miss the benefit of a detour.'],
+      [28, 35, 'The direct policy is fast: one chunk of 50 actions in 63 ms, as reported.'],
+      [35, 42, 'The planner evaluates imagined outcomes — and pays for search at every step.'],
+      [42, 50, 'Even a perfect predictor does not fix a short-sighted score.'],
+      [50, 57, 'World action models are not one design.'],
+      [57, 64, 'Some generate actions directly; some skip imagination at test time.'],
+      [64, 72, 'Other tools already solve parts of the problem.'],
+      [72, 80, 'Planners, MPC, fine-tuning, guidance — each is good at something.'],
+      [80, 88, 'What we want to add: reuse the VLA’s skills, and keep the lesson.'],
+      [88, 96, 'Teacher-guided policy learning itself is not new: Guided Policy Search.'],
+      [96, 106.2, 'The question: can extra reasoning become help we do not need next time?']
+    ]);
+  }
+
+
+  // =====================================================================
+  // 04 — The bet
+  // =====================================================================
+  function sceneThesis(ctx, u) {
+    wash(ctx, 0.97);
+    ctx.save(); appear(ctx, ramp(u, 0.5, 1.4));
+    text(ctx, 'First time:', 150, 300, { fam: SERIF, weight: 600, size: 58, color: C.mute });
+    text(ctx, 'predict and reason.', 480, 300, { fam: SERIF, weight: 600, size: 58, color: C.orange });
+    ctx.restore();
+    ctx.save(); appear(ctx, ramp(u, 9, 9.9));
+    text(ctx, 'After that:', 150, 384, { fam: SERIF, weight: 600, size: 58, color: C.mute });
+    text(ctx, 'a cheap, transferable skill.', 480, 384, { fam: SERIF, weight: 600, size: 58, color: C.teal });
+    ctx.restore();
+    const nodes = [['Existing skills', 'the small VLA', C.blue], ['Predictive correction', 'in a new situation', C.orange], ['Fast adaptation', 'the VLA is updated', C.teal], ['Acting alone', 'and accumulating', C.green]];
+    nodes.forEach(([t, s, col], i) => {
+      const x = 150 + i * 420, y = 500, a = ramp(u, 18.5 + i * 1.8, 19.2 + i * 1.8);
+      ctx.save(); appear(ctx, a, 10);
+      panelBox(ctx, x, y, 360, 130, { stroke: col, bar: col });
+      text(ctx, t, x + 30, y + 58, { size: 28, weight: 600, color: C.ink });
+      text(ctx, s, x + 30, y + 96, { size: 22, color: C.mute });
+      if (i < 3) arrow(ctx, x + 366, y + 65, x + 414, y + 65, { color: C.faint, width: 3, head: 12 });
+      ctx.restore();
+    });
+    captions(ctx, u, [
+      [0, 9, 'The first time a problem appears, prediction makes up for missing experience.'],
+      [9, 18, 'When it comes back: turn that expensive reasoning into a cheap skill.'],
+      [18, 27, 'Skills → corrected in a new situation → the VLA is updated → acting alone.'],
+      [27, 36.2, 'Existing skills, a predictive correction, fast adaptation — then acting alone.']
+    ]);
+  }
+
+
+  // =====================================================================
+  // 05 — Guidance: geometry and predicted consequences (3D: chunk denoising; right: two-branch graph)
+  // =====================================================================
+  function legendProposal(ctx, x, y, a) {
+    if (a <= 0) return;
+    ctx.save(); ctx.globalAlpha *= a;
+    const w = chip(ctx, 'VLA proposal', x, y, { col: C.blue, size: 20 });
+    chip(ctx, 'corrected chunk — executed', x + w + 30, y, { col: C.orange, size: 20 });
+    ctx.restore();
+  }
+  function sceneGuide(ctx, u) {
+    const G = TL.guide, pa = ramp(u, G.pipe, G.pipe + 1);
+    if (pa > 0) { ctx.save(); ctx.globalAlpha = pa; hWash(ctx, 980, 1090, 0.94, true); ctx.restore(); }
+    subhead(ctx, 'The VLA’s own action chunk, being denoised', 80, 140, { color: C.blue });
+    legendProposal(ctx, 80, 160, ramp(u, 7, 8));
+    const tau = guideTau(u);
+    const bx = 130, by = 850, bw = 800;
+    ctx.fillStyle = 'rgba(255,255,255,0.10)'; rrect(ctx, bx, by - 6, bw, 12, 6); ctx.fill();
+    ctx.fillStyle = rgba(C.orange, 0.35); ctx.fillRect(bx + bw * 0.3, by - 6, bw * 0.5, 12);
+    ctx.fillStyle = C.blue; rrect(ctx, bx, by - 6, Math.max(bw * tau, 12), 12, 6); ctx.fill();
+    dot(ctx, bx + bw * tau, by, 11, C.ink);
+    haloText(ctx, 'noise', bx, by + 36, { size: 21, color: C.mute });
+    haloText(ctx, 'actions', bx + bw, by + 36, { size: 21, color: C.mute, align: 'right' });
+    haloText(ctx, 'guided window', bx + bw * 0.55, by - 20, { size: 20, weight: 600, color: C.orange, align: 'center' });
+    haloText(ctx, `τ = ${tau.toFixed(2)}`, bx + bw * 0.55, by + 36, { size: 21, color: C.ink, align: 'center' });
+    if (pa > 0) {
+      const hot = u < G.geo ? -1 : u < G.cons ? 0 : u < G.sum ? 1 : u < G.upd ? 2 : 3;
+      const A = (t0) => ramp(u, t0, t0 + 0.6);
+      ctx.save(); ctx.globalAlpha = A(G.pipe);
+      mathText(ctx, 'Ahat', 1485, 205, { size: 46, align: 'center', color: C.ink });
+      text(ctx, 'clean estimate', 1485, 238, { size: 18, color: C.mute, align: 'center' });
+      ctx.restore();
+      const branch = (x, y, w, col, title, sub, key, on, t0, lab, labx) => {
+        ctx.save(); ctx.globalAlpha = A(t0);
+        arrow(ctx, 1485, 252, x + w / 2, y - 6, { color: C.faint, width: 2.5, head: 10 });
+        mathText(ctx, lab, labx, 286, { size: 24, color: C.mute, align: 'center' });
+        panelBox(ctx, x, y, w, 160, { stroke: col, hot: on, fill: on ? 'rgba(30,38,52,0.95)' : undefined });
+        text(ctx, title, x + 22, y + 40, { size: 24, weight: 600, color: C.ink });
+        text(ctx, sub, x + 22, y + 68, { size: 17, color: C.mute });
+        mathText(ctx, key, x + w / 2, y + 128, { size: 28, color: on ? C.ink : C.mute, align: 'center' });
+        ctx.restore();
+      };
+      branch(1120, 310, 340, C.teal, 'Geometry', 'from sensors or simulation', 'EgeoK', hot === 0, G.pipe + 0.6, 'Kmap', 1270);
+      branch(1500, 310, 350, C.orange, 'Consequences', 'trained action-conditioned model', 'Econs', hot === 1, G.pipe + 1.2, 'Fmap', 1720);
+      ctx.save(); ctx.globalAlpha = A(G.cons);
+      text(ctx, 'g, c — goal and constraints decide the score', 1675, 498, { size: 17, color: hot === 1 ? C.orangeDeep : C.faint, align: 'center' });
+      ctx.restore();
+      ctx.save(); ctx.globalAlpha = A(G.pipe + 1.8);
+      arrow(ctx, 1290, 474, 1400, 540, { color: C.faint, width: 2.5, head: 10 });
+      arrow(ctx, 1675, 510, 1580, 540, { color: C.faint, width: 2.5, head: 10 });
+      panelBox(ctx, 1120, 546, 730, 84, { stroke: C.ink, hot: hot === 2, fill: hot === 2 ? 'rgba(30,38,52,0.95)' : undefined });
+      mathText(ctx, 'Esum', 1485, 598, { size: 28, color: hot === 2 ? C.ink : C.mute, align: 'center' });
+      arrow(ctx, 1485, 634, 1485, 664, { color: C.faint, width: 2.5, head: 10 });
+      panelBox(ctx, 1120, 670, 730, 104, { stroke: C.orange, hot: hot === 3, fill: hot === 3 ? 'rgba(58,38,20,0.92)' : undefined });
+      mathText(ctx, 'update', 1485, 722, { size: 32, color: hot === 3 ? C.orangeDeep : C.mute, align: 'center' });
+      const pw = mathText(ctx, 'Pcal', 1300, 756, { size: 20, color: C.faint });
+      text(ctx, '  normalize · clip · smooth — not the raw gradient', 1300 + pw, 756, { size: 17, color: C.faint });
+      ctx.restore();
+    }
+    captions(ctx, u, [
+      [0, 7, 'How the teacher helps: it corrects the VLA’s own action chunk.'],
+      [7, 14, 'Blue: what the VLA proposes. Orange: the corrected chunk the robot executes.'],
+      [14, 20, 'π0.5 denoises in 10 steps, GR00T N1.6 in 4; guidance acts mid-way.'],
+      [20, 27, 'From the clean estimate, two branches: geometry and predicted consequences.'],
+      [27, 34, 'Geometry comes from sensors or simulation, through the arm’s kinematics.'],
+      [34, 41, 'Consequences come from a trained action-conditioned model, read out as costs.'],
+      [41, 48, 'The goal and constraints decide how the predicted outcome is scored.'],
+      [48, 54, 'A processed gradient updates the velocity: normalized, clipped, smoothed.'],
+      [54, 60.2, 'Planners and best-of-N stay in the study as strong baselines.']
+    ]);
+  }
+
+
+  // =====================================================================
+  // 06 — The geometry part of the teacher
+  // =====================================================================
+  function sceneGeom(ctx, u) {
+    const T = TL.geom;
+    subhead(ctx, 'Local energy: attract to the bowl + repel from the barrier', 80, 140, { color: C.orange, alpha: 1 - ramp(u, T.T - 0.5, T.T) });
+    subhead(ctx, 'Geometric progress field T — computed numerically', 80, 140, { color: C.teal, alpha: ramp(u, T.T, T.T + 0.6) });
+    legendProposal(ctx, 80, 160, ramp(u, T.prop, T.prop + 0.8));
+    if (u > T.T + 1) {
+      ctx.save(); appear(ctx, ramp(u, T.T + 1, T.T + 1.8));
+      panelBox(ctx, 1360, 170, 480, 170, { stroke: C.teal });
+      mathText(ctx, 'eikonal', 1600, 250, { size: 46, align: 'center', color: C.ink });
+      text(ctx, 'T = 0 at the goal', 1600, 300, { size: 23, align: 'center', color: C.mute });
+      ctx.restore();
+    }
+    captions(ctx, u, [
+      [0, 7, 'The geometry part of the teacher. A plain attract-and-repel field…'],
+      [7, 14, '…cancels in front of the barrier: no upward push. It stalls.'],
+      [14, 21, 'A geometric progress field T, computed numerically, measures the way to the goal.'],
+      [21, 28, 'The field evaluates progress; the VLA still proposes the motion.'],
+      [28, 36.2, 'The correction lifts the chunk over the barrier, and the robot executes it.']
+    ]);
+  }
+
+
+  // =====================================================================
+  // 07 — A direction, not a verdict
+  // =====================================================================
+  function sceneDirect(ctx, u) {
+    const T = TL.direct;
+    hWash(ctx, 1000, 1110, 0.92, true);
+    subhead(ctx, 'The VLA’s proposal, and what the teacher says about it', 80, 140, { color: C.blue });
+    legendProposal(ctx, 80, 160, ramp(u, TL.direct.bend[0], TL.direct.bend[0] + 0.8));
+    ctx.save(); appear(ctx, ramp(u, 1, 1.8));
+    panelBox(ctx, 1120, 170, 700, 130, { stroke: C.red });
+    tag(ctx, 'A VERDICT', 1150, 214, C.faint);
+    mark(ctx, 'no', 1168, 256, 17);
+    text(ctx, 'this action is bad', 1200, 266, { size: 32, weight: 600, color: C.ink });
+    ctx.restore();
+    if (u > T.keep - 1) {
+      ctx.save(); appear(ctx, ramp(u, T.keep - 1, T.keep - 0.2));
+      panelBox(ctx, 1120, 330, 700, 260, { stroke: C.orange });
+      tag(ctx, 'A DIRECTION', 1150, 374, C.orangeDeep);
+      [['keep the forward progress', C.blue, T.keep], ['add clearance over the barrier', C.orange, T.lift], ['ease the acceleration', C.orange, T.ease]].forEach(([s, col, t0], i) => {
+        ctx.save(); ctx.globalAlpha *= ramp(u, t0, t0 + 0.5);
+        dot(ctx, 1166, 434 + i * 58 - 9, 7, col);
+        text(ctx, s, 1190, 434 + i * 58, { size: 28, color: C.ink });
         ctx.restore();
       });
-      if (u > 43) {
-        const a3 = ramp(u, 43, 44);
-        ctx.save(); ctx.globalAlpha = a3;
-        heading(ctx, 'Stages switch only where contact permissions change', 100, 640, 34);
-        const stages = [['approach', 'gripper ↔ banana allowed'], ['grasp', 'latched event'], ['transport', 'banana ↔ barrier forbidden; T active'], ['place', 'banana ↔ bowl allowed'], ['release', 'gripper opens']];
-        stages.forEach((s, i) => {
-          const a4 = ramp(u, 43.6 + i * 0.6, 44.2 + i * 0.6);
-          ctx.save(); ctx.globalAlpha = a4;
-          const x = 100 + i * 346, y = 680, w = 320, h = 150;
-          panelBox(ctx, x, y, w, h, { fill: i === 2 ? rgba(C.teal, 0.08) : C.panel, stroke: i === 2 ? C.teal : C.grid, lw: i === 2 ? 3 : 2 });
-          text(ctx, `${i + 1}  ${s[0]}`, x + 22, y + 48, { size: 26, weight: 600, color: C.ink });
-          paragraph(ctx, s[1], x + 22, y + 88, w - 44, { size: 20, color: C.mute, lh: 27 });
-          if (i < 4) arrow(ctx, x + w + 2, y + h / 2, x + w + 24, y + h / 2, { color: C.faint, width: 2.5, head: 9 });
-          ctx.restore();
-        });
-        text(ctx, 'No “cross the barrier” stage: the detour lives in T, not in stage design.', 100, 880, { size: 24, color: C.tealDeep, weight: 500 });
-        ctx.restore();
-      }
+      ctx.restore();
+    }
+    if (u > T.eq) {
+      ctx.save(); appear(ctx, ramp(u, T.eq, T.eq + 0.8));
+      mathText(ctx, 'taylor', 1470, 672, { size: 42, color: C.ink, align: 'center' });
+      ctx.restore();
+    }
+    if (u > T.dagger) {
+      ctx.save(); appear(ctx, ramp(u, T.dagger, T.dagger + 0.8));
+      text(ctx, 'Corrections on states the student visits — as in DAgger (Ross et al., 2011)', 1470, 730, { size: 19, color: C.faint, align: 'center' });
       ctx.restore();
     }
     captions(ctx, u, [
-      [0, 8.5, 'Geodesic progress field T(x): solve the eikonal equation from the goal set in the grasped-object space, with obstacles inflated by gripper and banana. Speed falls toward obstacles to keep clearance.'],
-      [8.5, 16, 'T is a numerical shortest-time field. Its continuous value function has no spurious minima; in front of the barrier −∇T points up and over, with magnitude 1/S.'],
-      [16, 22.2, 'Remove the barrier and the field becomes a plain pull toward the bowl — no extra lift is asked for.'],
-      [22.2, 28.2, 'Close the top and, in the top view, −∇T swings toward the side opening.'],
-      [28.2, 34, 'Raise the barrier and the field asks for more clearance. No stage definition or waypoint was edited for any of these.'],
-      [34, 43.2, 'T is a value field, not a reference path. The progress term must reward progress itself — a hinge on the change of T over the chunk — so that holding still is never free.'],
-      [43.2, 54.2, 'Stages are cut only where contact permissions change. Geometry no longer hides a route inside the stage definition.']
+      [0, 7, 'A verdict says only: this action is bad.'],
+      [7, 14, 'A gradient says how nearby actions would score better.'],
+      [14, 21, 'Keep the forward progress, add clearance, ease the acceleration.'],
+      [21, 28, 'Corrections land on the states the student actually visits.'],
+      [28, 34, 'This helps only if the gradient points to an executable improvement.'],
+      [34, 40.2, 'Test: same VLA, same budget vs. imitation, fine-tuning, policy optimization.']
     ]);
   }
 
   // =====================================================================
-  // SCENE 6 — Teacher to structured student
+  // 08 — Same path, different physics (3D split screen: slow | fast)
   // =====================================================================
-  function sceneTeach(ctx, u, env) {
-    background(ctx);
-    heading(ctx, 'Predictive teacher → structured energy student', 100, 150, 40, ramp(u, 0, 0.8));
-    const box = (x, y, w, h, title, body, col, al, o) => {
-      o = o || {};
-      ctx.save(); ctx.globalAlpha = al; ctx.translate(0, (1 - easeOut(al)) * 14);
-      panelBox(ctx, x, y, w, h, { fill: o.fill || C.panel, stroke: col, lw: 3 });
-      text(ctx, title, x + 22, y + 42, { size: 24, weight: 600, color: col });
-      paragraph(ctx, body, x + 22, y + 80, w - 44, { size: 21, color: C.ink, lh: 29, fam: o.math ? MATH : SANS, italic: !!o.math });
+  function sceneSlip(ctx, u) {
+    topWash(ctx, 260, 0.94);
+    heading(ctx, 'Same path, different speed', 100, 150, 44, ramp(u, 0, 0.8));
+    ctx.save(); ctx.globalAlpha = ramp(u, 1, 2); spaced(ctx, 'ILLUSTRATIVE CONSEQUENCES UNDER ONE CHOSEN GRIP', 760, 150, { size: 16, weight: 600, color: C.orangeDeep, spacing: 2.2 }); ctx.restore();
+    ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(959, 190, 2, 890); ctx.restore();
+    [[0, 'Slow', C.green], [960, 'Fast', C.red]].forEach(([x, label, col], pi) => {
+      ctx.save(); ctx.fillStyle = col; rrect(ctx, x + 60, 204, 4, 34, 2); ctx.fill(); ctx.restore();
+      haloText(ctx, label, x + 80, 232, { size: 30, weight: 600, color: C.ink });
+      haloText(ctx, pi === 0 ? 'duration 2× · lower peak acceleration' : 'duration 1× · higher peak acceleration', x + 80, 262, { size: 19, color: C.mute });
+      ctx.save(); ctx.globalAlpha = ramp(u, 8, 8.8);
+      chip(ctx, 'untimed geometric path: indistinguishable', x + 60, 776, { mark: 'part', size: 23 });
+      ctx.globalAlpha = ramp(u, 15, 15.8);
+      chip(ctx, pi === 0 ? 'trained readout: grip holds' : 'trained readout: slip risk', x + 60, 826, { mark: pi === 0 ? 'yes' : 'no', size: 23 });
+      ctx.restore();
+    });
+    captions(ctx, u, [
+      [0, 8, 'Same path, different timing — illustrative consequences under one chosen grip.'],
+      [8, 15, 'As an untimed geometric path, the two are indistinguishable.'],
+      [15, 22, 'Trained outcome readouts must tell them apart — the key criterion.'],
+      [22, 28, 'And it must beat a simple analytic grip-stability baseline.'],
+      [28, 34.2, 'Fixed-rate action sequences already encode speed; bare paths do not.']
+    ]);
+  }
+
+  // =====================================================================
+  // 09 — Change the task, not the weights
+  // =====================================================================
+  function sceneIntervene(ctx, u) {
+    const T = TL.intervene, ph = T.phase;
+    subhead(ctx, 'Separate how the world changes from what we want this time', 80, 140, { color: C.teal });
+    legendProposal(ctx, 80, 160, ramp(u, TL.intervene.phase[0], TL.intervene.phase[0] + 0.8));
+    // formula card (whole scene)
+    ctx.save(); appear(ctx, ramp(u, 0.5, 1.3));
+    panelBox(ctx, 1320, 170, 520, 200, {});
+    mathText(ctx, 'energy1', 1350, 230, { size: 32, color: C.ink });
+    mathText(ctx, 'energy2', 1392, 280, { size: 32, color: C.ink });
+    const fw = mathText(ctx, 'Ftheta', 1352, 328, { size: 24, color: C.tealDeep }); text(ctx, '  what happens — reused', 1352 + fw, 327, { size: 20, color: C.tealDeep });
+    const gw = mathText(ctx, 'gc', 1352, 358, { size: 24, color: C.orangeDeep }); text(ctx, '  what we want — swapped', 1352 + gw, 357, { size: 20, color: C.orangeDeep });
+    ctx.restore();
+    if (u < T.diag) {
+      const step = u < ph[0] ? -1 : u < ph[1] ? 0 : u < ph[2] ? 1 : u < T.goal ? 2 : 3;
+      ['Barrier removed', 'Top closed', 'Taller barrier', 'New goal, cup forbidden'].forEach((s, i) => {
+        const y = 400 + i * 76, on = i === step, done = i < step;
+        ctx.save(); ctx.globalAlpha = ramp(u, 1 + i * 0.3, 1.6 + i * 0.3) * (1 - ramp(u, T.diag - 0.5, T.diag));
+        panelBox(ctx, 1320, y, 520, 62, { r: 12, stroke: on ? C.teal : null, hot: on, fill: on ? 'rgba(18,58,55,0.92)' : undefined });
+        ctx.globalAlpha *= on || done ? 1 : 0.5;
+        badge(ctx, i + 1, 1352, y + 31, on ? C.teal : done ? C.tealDeep : C.faint, 15);
+        text(ctx, s, 1380, y + 40, { size: 24, weight: 600, color: C.ink });
+        ctx.restore();
+      });
+    } else {
+      ctx.save(); appear(ctx, ramp(u, T.diag, T.diag + 0.7));
+      panelBox(ctx, 1320, 400, 520, 300, { stroke: C.orange });
+      tag(ctx, 'WHEN IT FAILS, ASK WHERE', 1350, 444, C.orangeDeep);
+      ['goal grounding', 'geometry', 'contact rules', 'consequence prediction'].forEach((s, i) => {
+        ctx.save(); ctx.globalAlpha *= ramp(u, T.diag + 0.4 + i * 0.5, T.diag + 0.9 + i * 0.5);
+        chip(ctx, s, 1350 + (i % 2) * 236, 474 + Math.floor(i / 2) * 76, { col: C.orange, size: 20 });
+        ctx.restore();
+      });
+      if (u > T.agf) {
+        ctx.globalAlpha *= ramp(u, T.agf, T.agf + 0.6);
+        text(ctx, 'Baseline: equally informed vector guidance', 1350, 652, { size: 20, color: C.ink });
+        text(ctx, 'AGF, arXiv 2609.34944', 1350, 680, { size: 17, color: C.faint });
+      }
+      ctx.restore();
+    }
+    captions(ctx, u, [
+      [0, 8, 'Separate how the world changes from what we want this time.'],
+      [8, 16, 'Remove the barrier: the field follows. No weights change.'],
+      [16, 24, 'Close the top: −∇T turns toward the side opening.'],
+      [24, 32, 'Raise the barrier: more clearance. Same skills, same predictor.'],
+      [32, 38, 'New instruction: the blue bowl — and do not touch the cup.'],
+      [38, 44, 'Only the goal and the contact rules change; the field updates at once.'],
+      [44, 50, 'When it fails, we can ask where: goal, geometry, contact rules, prediction.'],
+      [50, 56.2, 'Structure must still beat an equally informed vector network.']
+    ]);
+  }
+
+  // =====================================================================
+  // 10 — Teacher → energy student
+  // =====================================================================
+  function sceneTeach(ctx, u) {
+    wash(ctx, 0.95);
+    heading(ctx, 'Teacher → energy student', 100, 170, 48, ramp(u, 0, 0.8));
+    const box = (x, y, w, h, title, body, col, al) => {
+      ctx.save(); appear(ctx, al);
+      panelBox(ctx, x, y, w, h, { stroke: col, bar: col });
+      text(ctx, title, x + 30, y + 56, { size: 30, weight: 600, color: C.ink });
+      text(ctx, body, x + 30, y + 102, { size: 23, color: C.mute });
       ctx.restore();
     };
-    // Teacher row
-    const ty = 210;
-    ctx.save(); ctx.globalAlpha = ramp(u, 0.5, 1.2);
-    spaced(ctx, 'TEACHER  ·  TRAINING TIME ONLY', 100, ty - 14, { size: 18, color: C.orangeDeep, spacing: 2.2 });
+    const ty = 270, sy = 610, bh = 140;
+    ctx.save(); ctx.globalAlpha = ramp(u, 0.5, 1.2); tag(ctx, 'FULL TEACHER  ·  OFFLINE SUPERVISION + SELECTIVE ADAPTATION-TIME USE', 100, ty - 22, C.orangeDeep, { size: 17 }); ctx.restore();
+    box(100, ty, 520, bh, 'Explicit geometry', 'SDF · numerical T · contact rules', C.teal, ramp(u, 1, 1.8));
+    box(660, ty, 560, bh, 'Action-conditioned JEPA', '→ trained readouts: grip · slip · contact', C.orange, ramp(u, 7, 7.8));
+    box(1260, ty, 560, bh, 'Teacher energy', 'scores the VLA’s own proposal', C.orangeDeep, ramp(u, 9, 9.8));
+    ctx.save(); appear(ctx, ramp(u, 21, 22));
+    arrow(ctx, 960, ty + bh + 14, 960, sy - 30, { color: C.mute, width: 4, head: 18 });
+    haloText(ctx, 'distill: values + gradients', 990, ty + bh + 112, { size: 24, color: C.ink });
     ctx.restore();
-    box(100, ty, 520, 190, 'Explicit geometry', 'SDF of the scene · geodesic progress T(x) · contact permission matrix M (part × surface × stage)', C.teal, ramp(u, 0.8, 1.6));
-    box(660, ty, 560, 190, 'JEPA predictor F_θ(z₀, A)', 'Consequence readouts: grasp held? relative slip? object in goal set? forbidden contact?', C.orange, ramp(u, 1.6, 2.4));
-    box(1260, ty, 560, 190, 'Teacher energy E_T(A)', 'E_T = E_geometry(K(A)) + ℓ_task(F_θ(z₀, A), g, c); evaluated on the VLA proposal and its local perturbations — no path, no ranking.', C.orangeDeep, ramp(u, 2.4, 3.2), { math: false });
-    arrow(ctx, 622, ty + 95, 656, ty + 95, { color: C.faint, width: 3, head: 10 });
-    arrow(ctx, 1222, ty + 95, 1256, ty + 95, { color: C.faint, width: 3, head: 10 });
-    // middle: distillation arrow
-    const mid = ramp(u, 16, 17.2);
-    ctx.save(); ctx.globalAlpha = mid;
-    arrow(ctx, 960, ty + 200, 960, ty + 318, { color: C.ink, width: 5, head: 20 });
-    panelBox(ctx, 420, ty + 222, 1080, 74, { fill: C.band, stroke: C.grid });
-    text(ctx, 'Sobolev matching (values + gradients on VLA proposals)  ·  DAgger-style relabel on post-guidance proposals  ·  judged by real simulated outcomes', 960, ty + 268, { size: 20, align: 'center', color: C.ink });
-    ctx.restore();
-    // Student row
-    const sy = ty + 340;
-    ctx.save(); ctx.globalAlpha = ramp(u, 16.5, 17.3);
-    spaced(ctx, 'STUDENT  ·  DEPLOYMENT', 100, sy - 14, { size: 18, color: C.blueDeep, spacing: 2.2 });
-    ctx.restore();
-    box(100, sy, 520, 210, 'Encoder W_ψ, once per chunk', '(h, p, b) = W_ψ(o, s, ℓ): object roles, goal set, contact permissions p; stage belief and invariants b; cached features h.', C.blue, ramp(u, 17, 17.8));
-    box(660, sy, 560, 210, 'Analytic energy, always kept', 'E_analytic(K(A); G, p, b): SDF repulsion, progress hinge on T, contact matrix. Geometry comes from sensors, not from the network.', C.teal, ramp(u, 18, 18.8));
-    box(1260, sy, 560, 210, 'Small consequence module R_ψ', 'R_ψ(h, φ(A); p, b) answers per action query from velocities, accelerations and grasp state. R_ψ = 0 is the S1 baseline.', C.orange, ramp(u, 19, 19.8));
-    arrow(ctx, 622, sy + 105, 656, sy + 105, { color: C.faint, width: 3, head: 10 });
-    arrow(ctx, 1222, sy + 105, 1256, sy + 105, { color: C.faint, width: 3, head: 10 });
-    const eq = ramp(u, 20.5, 21.3);
-    ctx.save(); ctx.globalAlpha = eq;
-    text(ctx, 'E_S(A) = E_analytic(K(A); G, p, b) + R_ψ(h, φ(A); p, b)', 960, sy + 290, { size: 34, fam: MATH, italic: true, align: 'center', color: C.ink });
-    text(ctx, 'single scalar potential · total-gradient normalization only · independent execution safety layer', 960, sy + 332, { size: 20, align: 'center', color: C.mute });
+    ctx.save(); ctx.globalAlpha = ramp(u, 28, 28.7); tag(ctx, 'ENERGY STUDENT  ·  LEARNS TO EVALUATE CHEAPLY', 100, sy - 22, C.tealDeep, { size: 17 }); ctx.restore();
+    box(100, sy, 520, bh, 'Scene encoder', 'once per chunk', C.blue, ramp(u, 28, 28.8));
+    box(660, sy, 560, bh, 'Geometry energy', 'SDF + numerical T, from sensors', C.teal, ramp(u, 28.6, 29.4));
+    box(1260, sy, 560, bh, 'Consequence module', 'small, per action query', C.orange, ramp(u, 29.2, 30));
+    ctx.save(); ctx.globalAlpha = ramp(u, 35, 36);
+    chip(ctx, 'Evaluation is cheaper — the VLA itself has not changed yet.', 100, 810, { col: C.red, size: 24 });
     ctx.restore();
     captions(ctx, u, [
-      [0, 8, 'Teacher, used only in training: explicit geometry — SDF, T, contact matrix — plus a JEPA predictor whose readouts cover what geometry cannot see: grasp stability, slip, contact outcome.'],
-      [8, 16, 'Detour knowledge now comes from T, not from JEPA. JEPA’s increment has to be shown on physics, not on routes.'],
-      [16, 26, 'Student, at deployment: one encoder pass per chunk gives roles, goal set and stage belief; a small consequence module answers each action query; analytic geometry is always kept.'],
-      [26, 38.2, 'Train with value and gradient matching, relabel on the post-guidance distribution, and judge only by real outcomes. If the analytic field alone suffices, the experiment says so.']
+      [0, 7, 'The full teacher: explicit geometry plus an action-conditioned JEPA.'],
+      [7, 14, 'JEPA predicts future representations; trained readouts turn them into costs.'],
+      [14, 21, 'It supervises offline, and may step in again during allowed adaptation.'],
+      [21, 28, 'Its judgement is distilled into a light energy student: values and gradients.'],
+      [28, 35, 'The student encodes the scene once and queries consequences cheaply.'],
+      [35, 42.2, 'This makes evaluation cheaper. The VLA itself has not changed yet.']
     ]);
   }
 
+
   // =====================================================================
-  // SCENE 7 — Same path, different physics (fast/slow)
+  // 11 — Policy student: learning to need it less (loop → before/after split → key line)
   // =====================================================================
-  function sceneSlip(ctx, u, env) {
-    background(ctx);
-    heading(ctx, 'Same path geometry, different physics', 100, 140, 40, ramp(u, 0, 0.8));
-    const panels = [[100, 'Slow transport (duration 2×)', 9.0], [980, 'Fast transport (duration 1×)', 4.5]];
-    const path = arcPath(0.30, 0.17, 0.98, 0.13, 0.47, 60);
-    panels.forEach(([x, label, dur], pi) => {
-      const v = makeView(x + 20, 230, 800, 0.16, 1.16, 0, 0.56);
-      panelBox(ctx, x, 180, 840, 560, { fill: C.panel });
-      text(ctx, label, x + 24, 218, { size: 22, weight: 500, color: C.mute });
-      ctx.save(); ctx.beginPath(); ctx.rect(x + 2, 226, 836, 512); ctx.clip();
-      drawTable(ctx, v); drawBarrier(ctx, v, WORLD.barrierH); drawBowl(ctx, v);
-      polyline(ctx, path.map(p => [v.px(p[0]), v.py(p[1])]), rgba(C.blue, 0.35), 3, { dash: [8, 10] });
-      // motion: both start at u=1.5, repeat
-      const t0 = 1.5, period = 12;
-      let s = ((u - t0) % period + period) % period; if (u < t0) s = 0;
-      const prog = clamp(s / dur, 0, 1);
-      const idx = prog * 60, i0 = Math.floor(idx), i1 = Math.min(60, i0 + 1), fr = idx - i0;
-      const gx = lerp(path[i0][0], path[i1][0], fr), gz = lerp(path[i0][1], path[i1][1], fr);
-      // acceleration proxy: curvature × speed²
-      const speed = 1 / dur;
-      const slipped = pi === 1 && s > dur * 0.5 && s < period - 0.1;
-      let bDx = 0, bDz = 0, bAng = 0;
-      if (pi === 1 && !slipped) { const lag = clamp(speed * 4 * Math.sin(Math.PI * prog), 0, 0.09); bDx = -lag; bAng = -lag * 4; }
-      drawGripper(ctx, v, gx, gz, { bananaDx: bDx, bananaDz: bDz, bananaAng: bAng, noBanana: slipped, open: slipped ? 6 : 0 });
-      if (slipped) {
-        // banana falls from the apex
-        const tf = s - dur * 0.5, ax = path[30][0] - 0.06, az = path[30][1] - 0.01;
-        const fz = Math.max(WORLD.barrierH + 0.04, az - 0.5 * 2.2 * tf * tf), fx = ax + 0.2 * tf;
-        drawBanana(ctx, v.px(fx), v.py(fz), -tf * 2.0, 0.07 * v.scale);
-        ctx.save(); ctx.globalAlpha = fade(s, dur * 0.5, dur * 0.5 + 0.3, period - 1, period - 0.2);
-        text(ctx, 'slip', v.px(fx) + 40, v.py(fz) - 40, { size: 26, weight: 600, color: C.red });
+  function scenePolicy(ctx, u) {
+    const P = TL.policy;
+    if (u < P.split) {
+      wash(ctx, 0.96);
+      heading(ctx, 'Two students', 100, 170, 48, ramp(u, 0, 0.8));
+      [[100, 'Energy student', 'learns to evaluate cheaply', C.teal, 0.6], [980, 'Policy student — the VLA', 'learns to act without the evaluator', C.blue, 7]].forEach(([x, t, s, col, t0]) => {
+        ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.8));
+        panelBox(ctx, x, 220, 840, 120, { stroke: col, bar: col, hot: x > 500 && u > 7 });
+        text(ctx, t, x + 32, 270, { size: 32, weight: 600, color: C.ink });
+        text(ctx, s, x + 32, 312, { size: 24, color: C.mute });
         ctx.restore();
-      }
+      });
+      const nodes = [['VLA proposal', 'the current policy', C.blue, 14], ['Teacher correction', 'guided by the energy', C.orange, 15], ['Execute & observe', 'keep only verified corrections', C.green, 16],
+        ['Update the VLA', 'native objective + old-skill replay', C.teal, 21], ['Test, guidance off', 'held-out starts · no T', C.green, 28]];
+      nodes.forEach(([t, s, col, t0], i) => {
+        const x = 100 + i * 352, y = 420, w = 320, h = 128;
+        ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.7), 10);
+        panelBox(ctx, x, y, w, h, { stroke: col, bar: col });
+        badge(ctx, i + 1, x + 34, y + 40, col, 15);
+        text(ctx, t, x + 60, y + 48, { size: 25, weight: 600, color: C.ink });
+        text(ctx, s, x + 26, y + 96, { size: 19, color: C.mute });
+        if (i < 4) arrow(ctx, x + w + 2, y + h / 2, x + 348, y + h / 2, { color: C.faint, width: 2.5, head: 9 });
+        ctx.restore();
+      });
+      ctx.save(); ctx.globalAlpha = ramp(u, 28.5, 29.3);
+      ctx.strokeStyle = C.faint; ctx.lineWidth = 2.5; ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.moveTo(1668, 552); ctx.lineTo(1668, 590); ctx.lineTo(260, 590); ctx.lineTo(260, 556); ctx.stroke(); ctx.setLineDash([]);
+      arrow(ctx, 260, 572, 260, 552, { color: C.faint, width: 2.5, head: 9 });
+      text(ctx, 'next round', 964, 614, { size: 18, color: C.faint, align: 'center' });
       ctx.restore();
-      // verdict chips
-      const chipA = ramp(u, 7.5, 8.3);
-      ctx.save(); ctx.globalAlpha = chipA;
-      panelBox(ctx, x + 24, 690, 380, 38, { fill: C.band, stroke: C.grid, r: 19 });
-      text(ctx, 'geometry-only energy: identical score', x + 214, 716, { size: 19, align: 'center', color: C.ink });
-      const chipB = ramp(u, 14.5, 15.3);
-      ctx.globalAlpha = chipB;
-      panelBox(ctx, x + 420, 690, 400, 38, { fill: pi === 0 ? C.greenSoft : C.redSoft, stroke: pi === 0 ? C.green : C.red, r: 19 });
-      text(ctx, pi === 0 ? 'consequence module: grasp held' : 'consequence module: slip risk high', x + 620, 716, { size: 19, align: 'center', color: C.ink });
+      ctx.save(); ctx.globalAlpha = ramp(u, 21.5, 22.3);
+      mathText(ctx, 'piUpdate', 960, 712, { size: 52, align: 'center', color: C.ink });
+      text(ctx, 'data: execution-verified corrections + replay of old skills', 960, 764, { size: 22, color: C.mute, align: 'center' });
       ctx.restore();
-    });
-    captions(ctx, u, [
-      [0, 7.5, 'Same path geometry, different timing. Slow transport keeps the banana; fast transport lets it lag and slip at the apex.'],
-      [7.5, 14.5, 'A geometry-only energy — SDF, T, contact matrix — scores both executions identically.'],
-      [14.5, 20.5, 'The consequence module must tell them apart — and must beat a simple analytic grasp-stability baseline (acceleration bound, friction cone) to justify learning it.'],
-      [20.5, 26.2, 'The input definition decides what the test proves: a fixed-rate action sequence already encodes velocity; only time-free path geometry is blind to speed.']
-    ]);
-  }
-
-  // =====================================================================
-  // SCENE 8 — Experiments and E0 acceptance
-  // =====================================================================
-  function sceneExp(ctx, u, env) {
-    background(ctx);
-    heading(ctx, 'Experiments, in the order that can fail early', 100, 140, 40, ramp(u, 0, 0.8));
-    const cols = [
-      ['A', 'Privileged expressiveness', C.teal, 0.6, [
-        'Correct geometry, roles and contacts given; no language backbone trained',
-        'Four energies: analytic · analytic + T · JEPA teacher · both; plus an analytic grasp-stability baseline',
-        'Plateau gradient at the stall point, trap rate, six layout interventions, fast/slow test',
-        'Hand-made fields are “privileged references”, never upper bounds'
-      ]],
-      ['B', 'Does amortization keep consequences?', C.orange, 6.6, [
-        'Frozen VLA · analytic field · JEPA teacher · learned parameter field · field + R_ψ · AGF-style guidance vector',
-        'Fair baseline: same teacher signal, data, information and injection interface; one multi-task network each',
-        'Held-out objects × constraints × layouts; interventionability when roles or contacts are edited',
-        'Student gradient judged by one-step improvement in simulation, not by cosine to the teacher'
-      ]],
-      ['C', 'Closed loop, latency, retirement', C.blue, 12.6, [
-        'π0.5 and GR00T N1.6: success, collisions, drops, recovery after a lost grasp',
-        'Full-pipeline p50/p95: encoding, geometry update (T once per stage), generation, R_ψ query, backward',
-        'Three gradient variants: MPGD stop-gradient · full Tweedie Jacobian · adjoint',
-        'Equal-compute best-of-N / CEM as baselines; teacher retirement curves'
-      ]]
-    ];
-    cols.forEach(([letter, title, col, t0, items], i) => {
-      const x = 100 + i * 580, y = 200, w = 540, h = 470;
-      const al = ramp(u, t0, t0 + 0.8);
-      ctx.save(); ctx.globalAlpha = al; ctx.translate(0, (1 - easeOut(al)) * 16);
-      panelBox(ctx, x, y, w, h, { fill: C.panel, stroke: col, lw: 3 });
-      ctx.fillStyle = col; rrect(ctx, x + 22, y + 24, 46, 46, 10); ctx.fill();
-      text(ctx, letter, x + 45, y + 57, { size: 28, weight: 700, color: C.panel, align: 'center' });
-      text(ctx, title, x + 84, y + 56, { size: 24, weight: 600, color: C.ink });
-      bullets(ctx, items, x + 22, y + 120, w - 44, u, t0 + 0.9, 1.0, { size: 20, lh: 27, dotColor: col, gap: 16 });
+    } else if (u < P.line) {
+      topWash(ctx, 300, 0.94);
+      heading(ctx, 'Teacher off: before vs. after adaptation', 100, 150, 42, ramp(u, P.split, P.split + 0.8));
+      ctx.save(); ctx.fillStyle = 'rgba(255,255,255,0.14)'; ctx.fillRect(959, 190, 2, 890); ctx.restore();
+      [[0, 'Before adaptation', 'teacher off · held-out start', C.red], [960, 'After adaptation', 'teacher off · the same held-out start', C.green]].forEach(([x, t, s, col]) => {
+        ctx.fillStyle = col; rrect(ctx, x + 60, 206, 4, 54, 2); ctx.fill();
+        haloText(ctx, t, x + 80, 232, { size: 30, weight: 600, color: C.ink });
+        haloText(ctx, s, x + 80, 262, { size: 19, color: C.mute });
+      });
+      const cond = u < P.c2 ? 'Held-out condition 1 · a higher barrier' : 'Held-out condition 2 · grip near one end';
+      haloText(ctx, cond, 960, 312, { size: 24, weight: 600, color: C.orangeDeep, align: 'center', alpha: u < P.c2 ? ramp(u, P.split + 0.5, P.split + 1.2) : ramp(u, P.c2, P.c2 + 0.7) });
+    } else {
+      wash(ctx, 0.97);
+      ctx.save(); appear(ctx, ramp(u, P.line + 0.3, P.line + 1.2));
+      text(ctx, 'Making the correction cheaper is not enough.', 960, 440, { fam: SERIF, weight: 600, size: 58, color: C.ink, align: 'center' });
       ctx.restore();
-    });
-    // E0 acceptance checklist
-    const e0 = ramp(u, 18.5, 19.3);
-    ctx.save(); ctx.globalAlpha = e0;
-    panelBox(ctx, 100, 700, 1720, 200, { fill: C.band, stroke: C.grid });
-    text(ctx, 'E0 acceptance — before any amortization training', 124, 740, { size: 24, weight: 600, color: C.ink });
-    const tests = [
-      ['Hold-action test', 'staying still is never scored as progress'],
-      ['Layout interventions', 'closed top, closed side, removed barrier: actions change, stages do not'],
-      ['Space → action gradient', '∇T survives the kinematic map; no stall at symmetric or joint-limit states'],
-      ['Dynamics increment', 'JEPA beats pure geometry and the analytic grasp-stability baseline']
-    ];
-    tests.forEach((t, i) => {
-      const a = ramp(u, 19.5 + i * 1.6, 20.1 + i * 1.6);
-      ctx.save(); ctx.globalAlpha = a;
-      const x = 124 + i * 425, y = 770;
-      ctx.strokeStyle = C.mute; ctx.lineWidth = 3; rrect(ctx, x, y, 30, 30, 6); ctx.stroke();
-      text(ctx, 'to run', x + 15, y + 52, { size: 15, color: C.faint, align: 'center' });
-      text(ctx, t[0], x + 46, y + 24, { size: 21, weight: 600, color: C.ink });
-      paragraph(ctx, t[1], x + 46, y + 56, 350, { size: 18, color: C.mute, lh: 24 });
-      ctx.restore();
-    });
-    ctx.restore();
-    captions(ctx, u, [
-      [0, 6.6, 'Experiment A — privileged expressiveness: with correct geometry and contacts given, which energy family can even express the task?'],
-      [6.6, 12.6, 'Experiment B — does amortization keep consequences, or only the look of the field? Fair AGF-style baseline: same teacher, data, information and injection interface.'],
-      [12.6, 18.6, 'Experiment C — closed loop on π0.5 and GR00T: success, drops, full-pipeline latency, three gradient approximations, and retirement.'],
-      [18.6, 30.2, 'Before any large-scale amortization training, four acceptance tests must pass.']
-    ]);
-  }
-
-  // =====================================================================
-  // SCENE 9 — Distillation and three-level retirement
-  // =====================================================================
-  function sceneRetire(ctx, u, env) {
-    background(ctx);
-    heading(ctx, 'Distill the corrections, then retire the teacher in three steps', 100, 140, 40, ramp(u, 0, 0.8));
-    // left: three levels
-    const levels = [
-      ['Level 1', 'Predictive teacher (JEPA) off', 'amortized R_ψ and geometry still guide', C.orange, 3.0],
-      ['Level 2', 'Learned consequence module R_ψ off', 'FMM/T and SDF geometry still guide — not yet autonomous', C.teal, 6.0],
-      ['Level 3', 'All guidance off', 'VLA alone + independent execution safety layer = autonomy', C.blue, 9.0]
-    ];
-    levels.forEach(([lv, title, note, col, t0], i) => {
-      const y = 210 + i * 170, al = ramp(u, 0.8 + i * 0.5, 1.4 + i * 0.5), off = sramp(u, t0, t0 + 1.2);
-      ctx.save(); ctx.globalAlpha = al;
-      panelBox(ctx, 100, y, 860, 140, { fill: C.panel, stroke: off > 0.5 ? C.grid : col, lw: 3 });
-      // toggle
-      const tx = 820, ty = y + 50;
-      ctx.fillStyle = off > 0.5 ? C.grid : col; rrect(ctx, tx, ty, 92, 44, 22); ctx.fill();
-      dot(ctx, lerp(tx + 70, tx + 22, off), ty + 22, 17, C.panel);
-      text(ctx, off > 0.5 ? 'off' : 'on', tx + 46, ty + 76, { size: 16, color: C.mute, align: 'center' });
-      text(ctx, lv, 124, y + 46, { size: 20, weight: 500, color: col });
-      text(ctx, title, 124, y + 82, { size: 26, weight: 600, color: off > 0.5 ? C.mute : C.ink });
-      paragraph(ctx, note, 124, y + 116, 660, { size: 20, color: C.mute, lh: 26 });
-      ctx.restore();
-    });
-    ctx.save(); ctx.globalAlpha = ramp(u, 1.5, 2.3);
-    paragraph(ctx, 'Corrections are distilled into a noise-space adapter or a vector-field residual; the base VLA weights stay frozen first.', 100, 745, 860, { size: 21, color: C.mute, lh: 29 });
-    ctx.restore();
-    // right: illustrative chart (hypothesis)
-    const cx0 = 1040, cy0 = 210, cw = 780, ch = 540;
-    const ca = ramp(u, 2.5, 3.3);
-    ctx.save(); ctx.globalAlpha = ca;
-    panelBox(ctx, cx0, cy0, cw, ch, { fill: C.panel });
-    text(ctx, 'Autonomous success vs. cumulative teacher calls', cx0 + 24, cy0 + 40, { size: 22, weight: 600, color: C.ink });
-    spaced(ctx, 'ILLUSTRATIVE HYPOTHESIS — NOT RESULTS', cx0 + 24, cy0 + 68, { size: 15, color: C.orangeDeep, spacing: 2 });
-    const gx = cx0 + 90, gy = cy0 + 100, gw = cw - 130, gh = ch - 190;
-    // grid
-    for (let k = 0; k <= 4; k++) { const yy = gy + gh - gh * k / 4; line(ctx, gx, yy, gx + gw, yy, C.grid, 1); text(ctx, `${k * 25}%`, gx - 14, yy + 7, { size: 16, color: C.mute, align: 'right' }); }
-    const xs = [0, 50, 100, 200, 400, 800];
-    xs.forEach((xv, k) => { const xx = gx + gw * k / 5; text(ctx, String(xv), xx, gy + gh + 30, { size: 16, color: C.mute, align: 'center' }); });
-    text(ctx, 'teacher calls (log-spaced)', gx + gw / 2, gy + gh + 60, { size: 17, color: C.mute, align: 'center' });
-    line(ctx, gx, gy + gh, gx + gw, gy + gh, C.line, 2);
-    const series = [
-      ['vector-field / adapter distillation', C.blue, [35, 52, 67, 79, 88, 91]],
-      ['action-only distillation', C.orange, [35, 45, 55, 66, 74, 79]],
-      ['direct fine-tuning (same data)', C.slate, [35, 41, 48, 56, 63, 69]]
-    ];
-    const prog = sramp(u, 3.5, 11);
-    series.forEach(([name, col, vals], si) => {
-      const pts = vals.map((val, k) => [gx + gw * k / 5, gy + gh - gh * val / 100]);
-      const end = drawPartial(ctx, pts, prog, col, 3);
-      if (end) { dot(ctx, end[0], end[1], 6, col); }
-      if (prog >= 1) text(ctx, name, pts[5][0] - 12, pts[5][1] - 14 + (si === 1 ? 0 : 0), { size: 17, color: C.ink, align: 'right' });
-    });
-    // legend
-    series.forEach(([name, col], si) => { const lx = cx0 + 24 + si * 250, ly = cy0 + ch - 24; line(ctx, lx, ly, lx + 26, ly, col, 3); text(ctx, name.split(' (')[0], lx + 34, ly + 6, { size: 15, color: C.mute }); });
-    ctx.restore();
-    // end card
-    if (u > 17) {
-      const al = ramp(u, 17, 18.2);
-      ctx.save(); ctx.globalAlpha = al;
-      ctx.fillStyle = rgba(C.paper, 0.92 * al); ctx.fillRect(0, 0, W, H);
-      ctx.globalAlpha = al;
-      text(ctx, 'Success means autonomy rises while teacher usage falls — and old skills hold.', 960, 400, { fam: SERIF, weight: 600, size: 48, align: 'center', color: C.ink });
-      paragraph(ctx, 'Next: a privileged closed-loop test. From a wrong or stalled action, does the field find an executable improvement?', 360, 480, 1200, { size: 30, color: C.mute, lh: 42, align: 'center' });
-      line(ctx, 760, 600, 1160, 600, C.orange, 4);
-      spaced(ctx, 'STATUS: CONCEPT / HYPOTHESIS  ·  NOTHING SHOWN HERE IS A RESULT', 490, 660, { size: 20, color: C.mute, spacing: 2.4 });
+      ctx.save(); appear(ctx, ramp(u, P.line + 3, P.line + 4));
+      text(ctx, 'The policy must learn to need it less.', 960, 540, { fam: SERIF, weight: 600, size: 58, color: C.orange, align: 'center' });
       ctx.restore();
     }
     captions(ctx, u, [
-      [0, 8, 'Guided rollouts are distilled into a lightweight student; then the teacher is retired one layer at a time.'],
-      [8, 16, 'Level 1: predictive teacher off. Level 2: learned consequence module off — geometry guidance still runs, so this is not yet autonomy. Level 3: all guidance off.'],
-      [16, 26.2, 'The curves are hypotheses to test under equal data and compute, with retention on old tasks reported alongside.']
+      [0, 7, 'Two kinds of learning. The energy student learns to evaluate cheaply.'],
+      [7, 14, 'The policy student — the VLA itself — must learn to act without it.'],
+      [14, 21, 'Execute the corrected chunk and observe the outcome; keep only what works.'],
+      [21, 28, 'Update the VLA with its own objective, replaying old skills.'],
+      [28, 36, 'Then test with all guidance off, from starts never used in adaptation.'],
+      [36, 44, 'Left: before adaptation. Right: after. Same held-out start, no teacher.'],
+      [44, 52, 'A second held-out condition: the grip is near one end of the banana.'],
+      [52, 58, 'Both run without the teacher; only the VLA’s weights differ.'],
+      [58, 65, 'Making the correction cheaper is not enough.'],
+      [65, 72.2, 'The policy must learn to need it less.']
     ]);
   }
 
-  const DRAW = [sceneTitle, sceneTask, sceneGuide, sceneStall, sceneGeo, sceneTeach, sceneSlip, sceneExp, sceneRetire];
+
+  // =====================================================================
+  // 12 — Deployment states
+  // =====================================================================
+  function sceneInvest(ctx, u) {
+    const T = TL.invest;
+    subhead(ctx, 'Deployment states', 80, 140, { color: C.green });
+    const st = [['A', 'Full teacher', 'only for new or uncertain cases', C.orange, T.A], ['B', 'Energy student', 'cheaper — geometry still guides', C.teal, T.B], ['C', 'Updated VLA alone', 'T off too · safety check only', C.green, T.C]];
+    const cur = u < T.B ? 0 : u < T.C ? 1 : 2;
+    st.forEach(([k, title, sub, col, t0], i) => {
+      const y = 170 + i * 150;
+      ctx.save(); appear(ctx, ramp(u, t0 - 1, t0 - 0.3));
+      panelBox(ctx, 1320, y, 520, 130, { stroke: col, hot: i === cur });
+      ctx.globalAlpha *= i === cur ? 1 : 0.55;
+      badge(ctx, k, 1362, y + 65, col, 22);
+      text(ctx, title, 1402, y + 58, { size: 28, weight: 600, color: C.ink });
+      text(ctx, sub, 1402, y + 94, { size: 21, color: C.mute });
+      ctx.restore();
+    });
+    if (u > T.measure) {
+      ctx.save(); appear(ctx, ramp(u, T.measure, T.measure + 0.7));
+      panelBox(ctx, 1320, 640, 520, 190, {});
+      tag(ctx, 'TO MEASURE, OVER A DEPLOYMENT', 1350, 684, C.faint);
+      [['teacher calls', '↓', C.orange], ['human interventions', '↓', C.orange], ['success', '↑', C.green]].forEach(([s, a, col], i) => {
+        text(ctx, a, 1352, 730 + i * 34, { size: 26, weight: 700, color: col });
+        text(ctx, s, 1386, 730 + i * 34, { size: 23, color: C.ink });
+      });
+      ctx.restore();
+    }
+    captions(ctx, u, [
+      [0, 8, 'Deployment states, from most help to none.'],
+      [8, 15, 'A: the full teacher, called only for new or uncertain cases.'],
+      [15, 22, 'B: the energy student — cheaper, but geometry still guides.'],
+      [22, 28, 'C: the updated VLA alone. T is off, too; only a safety check remains.'],
+      [28, 34.2, 'To measure: teacher calls and interventions fall while success rises.']
+    ]);
+  }
+
+
+  // =====================================================================
+  // 13 — Four levels, and Level 3 as a concrete test
+  // =====================================================================
+  function sceneLevels(ctx, u) {
+    const L = TL.levels;
+    wash(ctx, 0.95);
+    if (u < L.test) {
+      const fo = 1 - ramp(u, L.test - 0.6, L.test);
+      heading(ctx, 'Four levels of success', 100, 170, 48, ramp(u, 0, 0.8) * fo);
+      const lv = [
+        ['Helped on a new combination', 'with the teacher, first time', C.orange, 0.6],
+        ['One teacher, unseen combinations', 'one set of parameters', C.teal, 8],
+        ['VLA alone, from new starts', 'after a little guidance', C.green, 14],
+        ['Each next task needs less help', 'skills accumulate, none forgotten', C.blue, 22]
+      ];
+      lv.forEach(([t, s, col, t0], i) => {
+        const x = 100 + i * 435, y = 640 - i * 112, w = 410, h = 150, key = i === 2;
+        ctx.save(); ctx.globalAlpha = fo; appear(ctx, ramp(u, t0, t0 + 0.8));
+        panelBox(ctx, x, y, w, h, { stroke: col, hot: key, bar: col });
+        tag(ctx, `LEVEL ${i + 1}`, x + 30, y + 40, col);
+        text(ctx, t, x + 30, y + 86, { size: 25, weight: 600, color: C.ink });
+        text(ctx, s, x + 30, y + 122, { size: 20, color: C.mute });
+        if (key) { ctx.globalAlpha *= ramp(u, 16, 16.8); chip(ctx, 'first paper’s endpoint', x, y - 60, { col: C.green, size: 20 }); }
+        ctx.restore();
+      });
+    } else {
+      heading(ctx, 'Level 3, as a test', 100, 170, 48, ramp(u, L.test, L.test + 0.8));
+      const cols = [[130, 'METHOD'], [860, 'ADAPTATION BUDGET'], [1220, 'AT TEST'], [1560, 'STARTS']];
+      ctx.save(); ctx.globalAlpha = ramp(u, L.test + 0.3, L.test + 1);
+      cols.forEach(([x, s]) => tag(ctx, s, x, 262, C.faint));
+      ctx.restore();
+      const rows = [['Direct fine-tuning', ''], ['Imitate the corrected actions', ''], ['Teacher-guided update', 'verified corrections · gradient-informed']];
+      rows.forEach(([m, sub], i) => {
+        const y = 290 + i * 120;
+        ctx.save(); appear(ctx, ramp(u, L.rows + i * 1.6, L.rows + 0.6 + i * 1.6), 10);
+        panelBox(ctx, 100, y, 1720, 100, { r: 12, stroke: i === 2 ? C.orange : null, hot: i === 2 });
+        text(ctx, m, 130, y + (sub ? 46 : 60), { size: 27, weight: 600, color: C.ink });
+        if (sub) text(ctx, sub, 130, y + 80, { size: 19, color: C.mute });
+        text(ctx, 'equal', 860, y + 60, { size: 24, color: C.ink });
+        text(ctx, 'all guidance off', 1220, y + 60, { size: 24, color: C.ink });
+        text(ctx, 'held-out', 1560, y + 60, { size: 24, color: C.ink });
+        ctx.restore();
+      });
+      ctx.save(); ctx.globalAlpha = ramp(u, L.limit, L.limit + 0.8);
+      panelBox(ctx, 100, 680, 900, 110, { stroke: C.red });
+      tag(ctx, 'LIMIT', 130, 720, C.red);
+      text(ctx, 'The student must observe what decides the right action.', 130, 762, { size: 25, color: C.ink });
+      ctx.restore();
+    }
+    captions(ctx, u, [
+      [0, 8, 'Level 1: with the teacher, a new combination is handled correctly.'],
+      [8, 14, 'Level 2: one teacher guides combinations it was never trained on.'],
+      [14, 22, 'Level 3: after a little guidance, the VLA alone succeeds from new starts.'],
+      [22, 30, 'Level 4: each related task needs less teaching than the one before.'],
+      [30, 38, 'Level 3 as a test: the same adaptation budget for every method.'],
+      [38, 46, 'Direct fine-tuning, imitating corrected actions, and the teacher-guided update.'],
+      [46, 52, 'Same budget, all guidance off, held-out starts: success decides.'],
+      [52, 56.2, 'Limit: the student must be able to see what decides the right action.']
+    ]);
+  }
+
+
+  // =====================================================================
+  // 14 — What we do not claim
+  // =====================================================================
+  function sceneNotClaims(ctx, u) {
+    wash(ctx, 0.95);
+    heading(ctx, 'What we do not claim as contributions', 100, 170, 48, ramp(u, 0, 0.8));
+    const cards = [
+      ['No path output', 'an interface choice — planners stay as baselines', 0.6],
+      ['No best-of-N', 'compared on success, cost and adaptation speed', 1.6],
+      ['Using JEPA', 'the question is how well it teaches', 2.6],
+      ['The geometric field', 'if geometry alone suffices, we accept that', 10]
+    ];
+    cards.forEach(([t, s, t0], i) => {
+      const x = 100 + (i % 2) * 880, y = 250 + Math.floor(i / 2) * 230, w = 840, h = 190;
+      ctx.save(); appear(ctx, ramp(u, t0, t0 + 0.8));
+      panelBox(ctx, x, y, w, h, {});
+      tag(ctx, 'NOT A SELLING POINT', x + 32, y + 44, C.red);
+      text(ctx, t, x + 32, y + 100, { fam: SERIF, weight: 600, size: 40, color: C.ink });
+      text(ctx, s, x + 32, y + 150, { size: 24, color: C.mute });
+      ctx.restore();
+    });
+    captions(ctx, u, [
+      [0, 10, 'Not claimed as contributions: skipping paths or best-of-N, or using JEPA.'],
+      [10, 20.2, 'And if geometry alone solves the task, the experiment will say so.']
+    ]);
+  }
+
+
+  // =====================================================================
+  // 14 — The proposition
+  // =====================================================================
+  function sceneEnd(ctx, u) {
+    wash(ctx, 0.97);
+    ctx.save(); appear(ctx, ramp(u, 0.4, 1.2));
+    tag(ctx, 'THE PROPOSITION — STATED SO THAT IT CAN FAIL', 160, 200, C.orangeDeep, { size: 18 });
+    paragraph(ctx, 'For a small VLA with basic skills: can a structured predictive teacher make it adapt to unseen constraint combinations with fewer new demonstrations or interactions — and keep that ability once guidance is removed?', 160, 282, 1600, { fam: SERIF, weight: 600, size: 44, color: C.ink, lh: 62 });
+    ctx.restore();
+    const parts = [['Useful on new combinations', C.orange], ['Cheaper adaptation', C.teal], ['Holds without the teacher', C.green]];
+    parts.forEach(([s, col], i) => {
+      ctx.save(); appear(ctx, ramp(u, 6 + i * 1.5, 6.8 + i * 1.5));
+      panelBox(ctx, 160 + i * 540, 540, 500, 100, { stroke: col, bar: col });
+      badge(ctx, i + 1, 214 + i * 540, 590, col, 20);
+      text(ctx, s, 252 + i * 540, 599, { size: 27, weight: 600, color: C.ink });
+      ctx.restore();
+    });
+    ctx.save(); appear(ctx, ramp(u, 20, 20.8));
+    text(ctx, 'Not a smarter planner carried forever — a teacher the robot outgrows.', 960, 740, { fam: SERIF, weight: 600, size: 38, color: C.orangeDeep, align: 'center' });
+    ctx.restore();
+    ctx.save(); ctx.globalAlpha = ramp(u, 25, 26);
+    text(ctx, 'Cited: arXiv 2603.22078 · 2506.09985 · 2609.39235 · 2511.18606 · 2602.03973 · 2601.16163 · 2603.16666 · 2603.10052 · 2609.34944 · 2310.17274 · 2310.16828 · 2504.16054 · Levine & Koltun 2013 · Ross et al. 2011', 160, 866, { size: 16, color: C.faint });
+    text(ctx, 'Schematic RoboCasa-style kitchen · Franka Panda meshes: MuJoCo Menagerie (Apache-2.0) · Banana: YCB Object and Model Set scan, object 011 (CC BY 4.0, re-oriented, texture resized)', 160, 894, { size: 16, color: C.faint });
+    ctx.restore();
+    captions(ctx, u, [
+      [0, 10, 'The proposition, stated so that it can fail.'],
+      [10, 18, 'One part: better inference. Two: faster adaptation. All three: the loop.'],
+      [18, 25, 'Not a smarter planner carried forever — a teacher the robot outgrows.']
+    ]);
+  }
+
+  // =====================================================================
+  // 16 — Appendix: related work and prior numbers
+  // =====================================================================
+  function sceneAppendix(ctx, u) {
+    wash(ctx, 0.97);
+    heading(ctx, 'Appendix: prior numbers and their scope', 100, 170, 48, ramp(u, 0, 0.8));
+    const cards = [
+      ['63 ms', 'π0.5, per 50-action chunk; evaluated WAMs 4.8–83× slower per inference (model and config dependent)', 'Do WAMs Generalize Better than VLAs?, arXiv 2603.22078, Tab. 5', C.blue],
+      ['16 s / action', 'V-JEPA 2-AC CEM planning: 800 samples, 10 iterations, horizon 1, one RTX 4090', 'V-JEPA 2, arXiv 2506.09985, Tab. 3', C.violet],
+      ['92% → 41%', 'perfect predictor, fixed 5-step rollout, goal 5 → 20 steps away', 'The Planning Limits of Latent World Models, arXiv 2609.39235', C.violet],
+      ['62%', 'least-restrictive filter baseline stalled (open-bag lifting): safe is not the same as progress', 'LatentCBF, arXiv 2511.18606, Tab. 2', C.red]
+    ];
+    cards.forEach(([big, lab, src, col], i) => {
+      const x = 100 + (i % 2) * 880, y = 230 + Math.floor(i / 2) * 300;
+      ctx.save(); appear(ctx, ramp(u, 0.6 + i * 0.8, 1.3 + i * 0.8));
+      statCard(ctx, x, y, 840, 270, big, lab, src, { col, bigSize: 58, lsize: 22 });
+      ctx.restore();
+    });
+    ctx.save(); ctx.globalAlpha = ramp(u, 4.5, 5.5);
+    text(ctx, 'Different tasks and protocols — not one comparison.', 100, 860, { size: 22, color: C.mute });
+    ctx.restore();
+    captions(ctx, u, [
+      [0, 10, 'Prior numbers, each from its own task and protocol — not one comparison.'],
+      [10, 22.2, 'They motivate the questions this plan asks.']
+    ]);
+  }
+
+  const DRAW = { title: sceneTitle, gap: sceneGap, tools: sceneTools, thesis: sceneThesis, guide: sceneGuide, geom: sceneGeom, direct: sceneDirect, slip: sceneSlip, intervene: sceneIntervene, teach: sceneTeach, policy: scenePolicy, invest: sceneInvest, levels: sceneLevels, notclaims: sceneNotClaims, end: sceneEnd, appendix: sceneAppendix };
+  const OPAQUE = { thesis: 1, teach: 1, levels: 1, notclaims: 1, end: 1, appendix: 1 }; // diagram scenes: no vignette needed
+
+  // ---- fields (built once; scene3d.js reads core.F) ----
+  let FIELDS = null;
+  function getF() { return FIELDS || (FIELDS = buildFields()); }
 
   // ---- environment / compositor ----
   function createEnv(makeCanvas) {
-    const env = { makeCanvas, F: buildFields(), cache: {} };
-    env.off = makeCanvas(W, H);
+    const env = { makeCanvas, F: getF(), cache: {} };
+    env.off = makeCanvas(W, H); mkCanvas = makeCanvas;
+    if (!texEnv) texEnv = { makeCanvas, F: env.F, cache: {} };
     return env;
   }
   function sceneIndexAt(t) {
     for (let i = SCENES.length - 1; i >= 0; i--) if (t >= SCENES[i].start) return i;
     return 0;
   }
-  function drawScene(ctx, i, u, env) {
+  function drawScene(ctx, i, u, env, fi) {
+    const id = SCENES[i].id;
     ctx.save();
-    DRAW[i](ctx, u, env);
+    if (!OPAQUE[id]) vignette(ctx, 0.55);
+    drawLabels(ctx, fi);
+    DRAW[id](ctx, u, env, fi || {});
     ctx.restore();
     eyebrow(ctx, i + 1, SCENES[i].name, ramp(u, 0, 0.6));
   }
-  // draw the full frame at absolute time t (seconds)
-  function draw(ctx, t, env) {
-    t = clamp(t, 0, DUR - 1e-3);
+  // Draw the overlay at absolute time t onto a TRANSPARENT ctx (the caller clears it).
+  // fiPrev: frame info of the previous scene's last frame (0.5 s crossfade). opts.opaque: paint the background first.
+  function draw(ctx, t, env, fi, fiPrev, opts) {
+    t = clamp(t, 0, DUR - 1e-3); fi = fi || {};
+    if (opts && opts.opaque) background(ctx);
     const i = sceneIndexAt(t), s = SCENES[i], u = t - s.start;
     if (i > 0 && u < FADE) {
-      // crossfade: previous scene frozen at its end, new scene fading in
-      drawScene(ctx, i - 1, SCENES[i - 1].dur - 0.001, env);
-      const octx = env.off.getContext('2d');
-      octx.save(); octx.setTransform(1, 0, 0, 1, 0, 0); octx.clearRect(0, 0, W, H);
-      drawScene(octx, i, u, env);
-      octx.restore();
-      ctx.save(); ctx.globalAlpha = easeIO(u / FADE); ctx.drawImage(env.off, 0, 0); ctx.restore();
-    } else {
-      drawScene(ctx, i, u, env);
-    }
+      const a = easeIO(u / FADE), off = env.off, octx = off.getContext('2d');
+      const layer = (idx, uu, f, alpha) => {
+        octx.setTransform(1, 0, 0, 1, 0, 0); octx.globalAlpha = 1; octx.clearRect(0, 0, W, H);
+        drawScene(octx, idx, uu, env, f || {});
+        ctx.save(); ctx.globalAlpha = alpha; ctx.drawImage(off, 0, 0); ctx.restore();
+      };
+      layer(i - 1, SCENES[i - 1].dur - 0.001, fiPrev, 1 - a);
+      layer(i, u, fi, a);
+    } else drawScene(ctx, i, u, env, fi);
     progressLine(ctx, t / DUR);
   }
 
-  return { W, H, C, SCENES, DUR, FADE, createEnv, draw, sceneIndexAt, buildFields };
+  // true where the overlay fully covers the 3D layer (diagram beats): capture may update the 3D at a low rate there
+  function overlayCovers(t) {
+    const i = sceneIndexAt(t), s = SCENES[i], u = t - s.start;
+    if (u < FADE + 0.05 || u > s.dur - 0.05) return false;
+    return !!OPAQUE[s.id] || (s.id === 'tools' && u > TL.tools.table + 1) || (s.id === 'policy' && (u < TL.policy.split - 0.5 || u > TL.policy.line + 1));
+  }
+  const util = { clamp, lerp, ramp, sramp, easeIO, easeOut, fade, WORLD, FX0, FX1, FZ0, FZ1, rng: mulberry32, arcPath, contactPoint, guideTau, SLIP, TL, rgba };
+  return {
+    W, H, C, SCENES, DUR, FADE, createEnv, draw, sceneIndexAt, buildFields, util, paintFieldTexture, setMath, overlayCovers,
+    get F() { return getF(); }
+  };
 });
